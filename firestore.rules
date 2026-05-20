@@ -1,0 +1,38 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global safety net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper functions
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isValidOrder(data) {
+      return data.customerName is string && data.customerName.size() <= 100 &&
+             data.mobileNumber is string && data.mobileNumber.size() <= 20 &&
+             data.address is string && data.address.size() <= 500 &&
+             data.status in ['Pending', 'Confirmed', 'Processing', 'Delivered', 'Cancelled'];
+    }
+
+    match /products/{productId} {
+      allow read: if true;
+      allow write: if true; // For demo/initial setup. Ideally restricted to Admin.
+    }
+
+    match /orders/{orderId} {
+      // Allow customers to create orders
+      allow create: if isValidOrder(request.resource.data);
+      
+      // For demo purposes, we allow viewing orders in the dashboard
+      // In a real production app, this should be restricted to authenticated admins
+      allow list, get: if true; 
+      
+      // Only permit updates to status (admin action)
+      allow update: if request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']);
+    }
+  }
+}

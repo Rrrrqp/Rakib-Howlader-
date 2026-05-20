@@ -1,0 +1,60 @@
+{
+  "entities": {
+    "Order": {
+      "title": "Order",
+      "description": "A customer order for Sera Fashion House",
+      "type": "object",
+      "properties": {
+        "customerName": { "type": "string" },
+        "mobileNumber": { "type": "string" },
+        "address": { "type": "string" },
+        "district": { "type": "string" },
+        "upazila": { "type": "string" },
+        "category": { "type": "string", "enum": ["Three Piece", "Saree", "Others"] },
+        "productCode": { "type": "string" },
+        "quantity": { "type": "number" },
+        "price": { "type": "number" },
+        "deliveryCharge": { "type": "number" },
+        "totalAmount": { "type": "number" },
+        "deliveryOption": { "type": "string", "enum": ["Home Delivery", "Courier Pickup"] },
+        "deliveryArea": { "type": "string", "enum": ["Inside Dhaka", "Outside Dhaka"] },
+        "paymentMethod": { "type": "string", "enum": ["Cash On Delivery", "bKash", "Nagad", "Rocket"] },
+        "transactionId": { "type": "string" },
+        "paymentScreenshotUrl": { "type": "string" },
+        "productScreenshotUrl": { "type": "string" },
+        "status": { "type": "string", "enum": ["Pending", "Confirmed", "Processing", "Delivered", "Cancelled"] },
+        "orderId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["customerName", "mobileNumber", "address", "district", "category", "productCode", "quantity", "price", "deliveryArea", "paymentMethod", "status", "orderId", "createdAt"]
+    },
+    "Product": {
+      "title": "Product",
+      "description": "A fashion product available for purchase",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "price": { "type": "number" },
+        "imageUrl": { "type": "string" },
+        "category": { "type": "string", "enum": ["Three Piece", "Saree", "Others"] },
+        "productCode": { "type": "string" },
+        "stock": { "type": "number" },
+        "discount": { "type": "number" },
+        "isActive": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "price", "imageUrl", "category", "productCode", "stock", "isActive", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/orders/{orderId}": {
+      "schema": "Order",
+      "description": "Collection of customer orders"
+    },
+    "/products/{productId}": {
+      "schema": "Product",
+      "description": "Collection of available fashion products"
+    }
+  }
+}
