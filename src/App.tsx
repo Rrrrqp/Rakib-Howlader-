@@ -379,7 +379,7 @@ export default function App() {
                                   <div className="flex items-start justify-between">
                                     <div>
                                       <h4 className="text-sm md:text-base font-bold text-gray-900 truncate">{item.productTitle}</h4>
-                                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Code: {item.productCode} • Size: {item.size}</p>
+                                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Code: {item.productCode}</p>
                                     </div>
                                     <button 
                                       type="button"
