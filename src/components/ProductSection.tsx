@@ -1,6 +1,5 @@
 import { useState } from 'react';
-import { ShoppingBag, Ruler, Hash, Palette, Layers, Upload, Minus, Plus, Star, Sparkles } from 'lucide-react';
-import ProductPicker from './ProductPicker';
+import { Ruler, Hash, Palette, Layers, Upload, Minus, Plus, Star } from 'lucide-react';
 import { Product } from '../types';
 
 interface ProductSectionProps {
@@ -24,24 +23,6 @@ export default function ProductSection({ register, errors, watch, setValue, cart
 
   return (
     <div className="premium-card p-4 md:p-8 rounded-[1.5rem] md:rounded-[2rem] space-y-6 md:space-y-8">
-      <div className="flex items-center justify-between border-b border-gold-200 pb-4 mb-6">
-        <div className="flex items-center gap-3">
-          <ShoppingBag className="text-brand-gold" size={24} />
-          <h2 className="text-lg font-serif font-black tracking-tight italic">Product <span className="text-brand-gold">Collection</span></h2>
-        </div>
-        <div className="flex items-center gap-2 bg-brand-gold/10 text-brand-gold px-4 py-1.5 rounded-full text-[11px] font-black uppercase tracking-widest border border-brand-gold/20">
-          <Sparkles size={12} fill="currentColor" />
-          Add More Items
-        </div>
-      </div>
-
-      {/* Product Catalog Picker to add more items */}
-      <ProductPicker 
-        onSelect={(product) => onAddToCart(product, 1, '38')} 
-      />
-
-      <div className="w-full h-px bg-gold-200 mt-12 mb-8" />
-
       <div className="bg-brand-cream/50 p-5 md:p-8 rounded-[2rem] border-2 border-gold-200 shadow-xl overflow-hidden">
         <div className="space-y-4">
           <label className="text-sm font-serif font-bold text-gray-800 tracking-tight">Delivery Area</label>
