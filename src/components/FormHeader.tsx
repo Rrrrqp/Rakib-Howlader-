@@ -51,9 +51,6 @@ export default function FormHeader({ bannerUrl }: FormHeaderProps) {
             <h2 className="text-[#e2136e] font-serif text-sm md:text-base font-bold flex items-center justify-center gap-2">
               Thank you for choosing Sera Fashion House ❤️
             </h2>
-            <p className="text-gray-700 font-sans text-xs md:text-sm leading-relaxed max-w-3xl mx-auto">
-              অর্ডার নিশ্চিত করতে নিচের ফর্মটি পূরণ করুন। সঠিক তথ্য প্রদান নিশ্চিত করুন যাতে ডেলিভারি সহজ হয়।
-            </p>
           </div>
         </motion.div>
       </div>
