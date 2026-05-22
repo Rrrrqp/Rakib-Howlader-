@@ -61,3 +61,11 @@ export interface Product {
   isActive: boolean;
   createdAt: string;
 }
+
+export interface BrandSettings {
+  logoUrl?: string;
+  telegramToken?: string;
+  telegramChatId?: string;
+  soundEnabled?: boolean;
+  pushEnabled?: boolean;
+}

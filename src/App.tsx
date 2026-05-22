@@ -17,6 +17,7 @@ import CouponSection from './components/CouponSection';
 import SuccessView from './components/SuccessView';
 import AdminDashboard from './components/AdminDashboard';
 import { createOrder } from './services/orderService';
+import { dispatchOrderNotifications } from './services/notificationService';
 import { Order, CartItem } from './types';
 import { ShoppingBag, Loader2, Database, RefreshCcw, ArrowDown, ArrowLeft, ShoppingCart, Trash2, Plus, Minus, CheckCircle2 } from 'lucide-react';
 import BANNER_IMAGE from './assets/images/sera_fashion_banner_1779021192580.png';
@@ -108,6 +109,14 @@ export default function App() {
         discountAmount,
         totalAmount
       });
+
+      if (result) {
+        // Dispatch real-time alerts & Telegram notification
+        dispatchOrderNotifications(result).catch(err => {
+          console.error("Failed to dispatch order notification actions:", err);
+        });
+      }
+
       setSubmittedOrder(result);
       setIsSubmitted(true);
       setCart([]); // Clear cart after success
