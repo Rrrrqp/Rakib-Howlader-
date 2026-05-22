@@ -94,7 +94,7 @@ export default function ProductShowcase({ onOrderNow, onAddToCart }: ProductShow
         </div>
       </div>
 
-      <div className="max-w-6xl mx-auto px-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 md:gap-8">
+      <div className="max-w-6xl mx-auto px-2 md:px-4 grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-8">
         {products
           .filter(p => activeCategory === 'ALL' || p.category === activeCategory)
           .map((product) => {
@@ -107,7 +107,7 @@ export default function ProductShowcase({ onOrderNow, onAddToCart }: ProductShow
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, margin: "-50px" }}
-              className="group bg-white rounded-3xl overflow-hidden shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-[0_20px_50px_rgba(0,0,0,0.1)] transition-all duration-500 border border-gray-100 flex flex-col"
+              className="group bg-white rounded-2xl md:rounded-3xl overflow-hidden shadow-[0_4px_20px_rgba(0,0,0,0.02)] hover:shadow-[0_20px_50px_rgba(0,0,0,0.1)] transition-all duration-500 border border-gray-100 flex flex-col"
             >
               {/* Image Container */}
               <div 
@@ -119,38 +119,38 @@ export default function ProductShowcase({ onOrderNow, onAddToCart }: ProductShow
                   alt={product.title}
                   className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
                 />
-                <div className="absolute top-4 left-4">
-                   <div className="bg-brand-charcoal/80 backdrop-blur-md text-white text-[9px] font-black uppercase tracking-widest px-3 py-1.5 rounded-full inline-flex items-center gap-2">
-                     <Hash size={10} className="text-brand-gold" />
+                <div className="absolute top-2 left-2 md:top-4 md:left-4">
+                   <div className="bg-brand-charcoal/80 backdrop-blur-md text-white text-[7px] md:text-[9px] font-black uppercase tracking-widest px-2 py-1 md:px-3 md:py-1.5 rounded-full inline-flex items-center gap-1 md:gap-2">
+                     <Hash size={8} className="text-brand-gold" />
                      {product.productCode}
                    </div>
                 </div>
               </div>
-
+ 
               {/* Content Container */}
-              <div className="p-5 md:p-6 flex-1 flex flex-col text-center space-y-3 md:space-y-4">
-                <div className="space-y-1">
+              <div className="p-3 md:p-6 flex-1 flex flex-col text-center space-y-2 md:space-y-4">
+                <div className="space-y-0.5 md:space-y-1">
                   {product.brand && (
-                    <p className="text-[9px] font-black text-brand-gold uppercase tracking-[0.2em]">{product.brand}</p>
+                    <p className="text-[8px] md:text-[9px] font-black text-brand-gold uppercase tracking-[0.15em] md:tracking-[0.2em]">{product.brand}</p>
                   )}
-                  <h3 className="text-sm md:text-lg font-bold text-gray-800 leading-tight line-clamp-1">
+                  <h3 className="text-xs md:text-lg font-bold text-gray-800 leading-tight line-clamp-2 md:line-clamp-1 min-h-[2rem] md:min-h-auto flex items-center justify-center">
                     {product.title}
                   </h3>
                 </div>
                 
-                <div className="flex items-center justify-center gap-3">
-                  <span className="text-lg md:text-xl font-black text-gray-900 tabular-nums">৳{product.price.toLocaleString()}</span>
+                <div className="flex items-center justify-center gap-1.5 md:gap-3">
+                  <span className="text-sm md:text-xl font-black text-[#1a1c2e] tabular-nums">৳{product.price.toLocaleString()}</span>
                   {discount > 0 && (
-                    <span className="text-xs md:text-sm text-gray-400 line-through font-medium">৳{originalPrice.toLocaleString()}</span>
+                    <span className="text-[10px] md:text-sm text-gray-400 line-through font-medium">৳{originalPrice.toLocaleString()}</span>
                   )}
                 </div>
-
-                <div className="pt-2">
+ 
+                <div className="pt-1 md:pt-2">
                   <button 
                     onClick={() => setSelectedProduct(product)}
-                    className="w-full py-3.5 md:py-4 bg-[#438a1a] text-white rounded-xl text-[11px] md:text-xs font-black uppercase tracking-widest transition-all hover:bg-[#346b14] active:scale-95 shadow-xl shadow-green-900/10 flex items-center justify-center gap-2"
+                    className="w-full py-2.5 md:py-4 bg-[#438a1a] text-white rounded-lg md:rounded-xl text-[9px] md:text-xs font-black uppercase tracking-widest transition-all hover:bg-[#346b14] active:scale-95 shadow-lg shadow-green-900/5 flex items-center justify-center gap-1 md:gap-2"
                   >
-                    <ShoppingCart size={14} />
+                    <ShoppingCart size={11} className="md:w-3.5 md:h-3.5" />
                     এখনই অর্ডার করুন
                   </button>
                 </div>
