@@ -39,5 +39,9 @@ service cloud.firestore {
       // Only permit updates to status (admin action)
       allow update: if request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']);
     }
+
+    match /visitor_sessions/{sessionId} {
+      allow read, write: if true;
+    }
   }
 }

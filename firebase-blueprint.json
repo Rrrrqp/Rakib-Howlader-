@@ -55,6 +55,22 @@
         "updatedAt": { "type": "string", "format": "date-time" }
       },
       "required": ["logoUrl"]
+    },
+    "VisitorSession": {
+      "title": "VisitorSession",
+      "description": "A real-time browsing session of a visitor",
+      "type": "object",
+      "properties": {
+        "sessionId": { "type": "string" },
+        "customerName": { "type": "string" },
+        "mobileNumber": { "type": "string" },
+        "deviceInfo": { "type": "string" },
+        "currentStage": { "type": "string" },
+        "views": { "type": "array" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "lastActiveAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["sessionId", "createdAt", "lastActiveAt"]
     }
   },
   "firestore": {
@@ -69,6 +85,10 @@
     "/settings/{settingId}": {
       "schema": "Setting",
       "description": "General settings or configurations like brand logo"
+    },
+    "/visitor_sessions/{sessionId}": {
+      "schema": "VisitorSession",
+      "description": "Collection of visitor active sessions for live tracking"
     }
   }
 }

@@ -25,6 +25,7 @@ import brandLogo from './assets/images/sfh_logo_1779435027377.png';
 import { getBrandLogoSettings } from './services/settingsService';
 import ProductShowcase from './components/ProductShowcase';
 import { Product as ProductType } from './types';
+import { startVisitorSession, updateVisitorStage, trackProductView, updateVisitorCustomerInfo } from './services/trackingService';
 
 export default function App() {
   const [isSubmitted, setIsSubmitted] = useState(false);
@@ -39,6 +40,15 @@ export default function App() {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [showCart, setShowCart] = useState(false);
   const [logoUrl, setLogoUrl] = useState<string>(brandLogo);
+
+  // Initialize Visitor Tracking
+  useEffect(() => {
+    startVisitorSession().then(() => {
+      updateVisitorStage('browsing_home', 'হোম পেজ ব্রাউজিং');
+    }).catch(err => {
+      console.error("Failed to start tracking session:", err);
+    });
+  }, []);
 
   useEffect(() => {
     async function loadLogo() {
@@ -61,11 +71,17 @@ export default function App() {
     } else {
       setAuthError(true);
       setAdminPassword('');
+      setAdminPhone('');
     }
   };
 
   const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm({
     defaultValues: {
+      customerName: '',
+      mobileNumber: '',
+      district: '',
+      upazila: '',
+      address: '',
       category: '' as any,
       quantity: 1,
       price: 0,
@@ -79,6 +95,21 @@ export default function App() {
       agreement: false
     }
   });
+
+  // Dynamically track billing form typing fields
+  const customerNameWatch = watch('customerName');
+  const mobileNumberWatch = watch('mobileNumber');
+  const districtWatch = watch('district');
+  const upazilaWatch = watch('upazila');
+
+  useEffect(() => {
+    updateVisitorCustomerInfo({
+      customerName: customerNameWatch,
+      mobileNumber: mobileNumberWatch,
+      district: districtWatch,
+      upazila: upazilaWatch
+    });
+  }, [customerNameWatch, mobileNumberWatch, districtWatch, upazilaWatch]);
 
   const onSubmit = async (data: any) => {
     if (cart.length === 0) {
@@ -115,6 +146,9 @@ export default function App() {
         dispatchOrderNotifications(result).catch(err => {
           console.error("Failed to dispatch order notification actions:", err);
         });
+        
+        // Mark tracking session as order completed!
+        updateVisitorStage('order_completed', 'অর্ডার সফলভাবে সম্পন্ন করেছেন! 🎉');
       }
 
       setSubmittedOrder(result);
@@ -131,7 +165,19 @@ export default function App() {
   const [checkoutMode, setCheckoutMode] = useState(false);
   const [showAddSuccess, setShowAddSuccess] = useState(false);
 
+  // Handle stage transition when checkoutMode changes
+  useEffect(() => {
+    if (checkoutMode) {
+      updateVisitorStage('filling_checkout', 'অর্ডার ফরম পূরণ করছেন ✍️');
+    } else {
+      updateVisitorStage('browsing_home', 'হোম পেজ ব্রাউজিং 🛍️');
+    }
+  }, [checkoutMode]);
+
   const handleShowcaseOrder = (product: ProductType, orderQuantity: number = 1, orderSize: string = '38') => {
+    trackProductView(product).catch(err => {
+      console.error("Failed to track view:", err);
+    });
     handleAddToCart(product, orderQuantity, orderSize);
     setCheckoutMode(true);
     // Scroll to top
@@ -139,6 +185,11 @@ export default function App() {
   };
 
   const handleAddToCart = (product: ProductType, orderQuantity: number = 1, orderSize: string = '38') => {
+    // Record view activity
+    trackProductView(product).catch(err => {
+      console.error("Failed to track product view:", err);
+    });
+
     const existingIndex = cart.findIndex(item => item.productId === product.id && item.size === orderSize);
     
     if (existingIndex > -1) {

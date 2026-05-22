@@ -69,3 +69,30 @@ export interface BrandSettings {
   soundEnabled?: boolean;
   pushEnabled?: boolean;
 }
+
+export interface ProductView {
+  productCode: string;
+  productTitle: string;
+  category: string;
+  price: number;
+  imageUrl: string;
+  viewedAt: string;
+}
+
+export type VisitorStage = 'browsing_home' | 'product_view' | 'added_to_cart' | 'filling_checkout' | 'order_completed';
+
+export interface VisitorSession {
+  id?: string;
+  sessionId: string;
+  idSuffix?: string;
+  customerName: string;
+  mobileNumber: string;
+  district?: string;
+  upazila?: string;
+  deviceInfo: string;
+  currentStage: VisitorStage;
+  currentStageLabel: string;
+  views: ProductView[];
+  createdAt: string;
+  lastActiveAt: string;
+}

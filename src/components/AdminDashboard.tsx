@@ -16,9 +16,11 @@ import { DigitalInvoice } from './DigitalInvoice';
 import { CashMemoModal } from './CashMemoModal';
 import ProductManager from './ProductManager';
 import SettingsManager from './SettingsManager';
+import LiveVisitorTracker from './LiveVisitorTracker';
+import { Activity } from 'lucide-react';
 
 export default function AdminDashboard() {
-  const [activeTab, setActiveTab] = useState<'orders' | 'products' | 'settings'>('orders');
+  const [activeTab, setActiveTab] = useState<'orders' | 'products' | 'settings' | 'live_visitors'>('orders');
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -205,6 +207,17 @@ export default function AdminDashboard() {
               <Settings size={14} />
               Settings
             </button>
+            <button 
+              onClick={() => setActiveTab('live_visitors')}
+              className={`flex items-center gap-2 px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all relative ${activeTab === 'live_visitors' ? 'bg-emerald-600 text-white shadow-lg' : 'text-gray-400 hover:text-white'}`}
+            >
+              <Activity size={14} className={activeTab === 'live_visitors' ? 'animate-pulse' : ''} />
+              Live Track
+              <span className="absolute -top-1 -right-1 flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+              </span>
+            </button>
           </div>
 
           <div className="hidden md:flex items-center gap-2">
@@ -240,6 +253,8 @@ export default function AdminDashboard() {
           <ProductManager />
         ) : activeTab === 'settings' ? (
           <SettingsManager />
+        ) : activeTab === 'live_visitors' ? (
+          <LiveVisitorTracker />
         ) : (
           <>
             {/* Marketing Analysis Section */}
