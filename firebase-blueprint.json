@@ -45,6 +45,16 @@
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["title", "price", "imageUrl", "category", "productCode", "stock", "isActive", "createdAt"]
+    },
+    "Setting": {
+      "title": "Setting",
+      "description": "General settings of Sera Fashion House",
+      "type": "object",
+      "properties": {
+        "logoUrl": { "type": "string" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["logoUrl"]
     }
   },
   "firestore": {
@@ -55,6 +65,10 @@
     "/products/{productId}": {
       "schema": "Product",
       "description": "Collection of available fashion products"
+    },
+    "/settings/{settingId}": {
+      "schema": "Setting",
+      "description": "General settings or configurations like brand logo"
     }
   }
 }

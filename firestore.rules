@@ -23,6 +23,11 @@ service cloud.firestore {
       allow write: if true; // For demo/initial setup. Ideally restricted to Admin.
     }
 
+    match /settings/{settingId} {
+      allow read: if true;
+      allow write: if true;
+    }
+
     match /orders/{orderId} {
       // Allow customers to create orders
       allow create: if isValidOrder(request.resource.data);

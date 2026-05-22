@@ -18,21 +18,21 @@ export default function FormHeader({ bannerUrl }: FormHeaderProps) {
             (e.target as HTMLImageElement).style.display = 'none';
           }}
         />
-        <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+        <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
           <div className="text-center px-4">
             <motion.h1 
-              initial={{ opacity: 0, scale: 0.9, y: 30 }}
+              initial={{ opacity: 0, scale: 0.9, y: 15 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
-              transition={{ duration: 1.5, ease: "easeOut" }}
-              className="text-2xl md:text-4xl font-serif text-white mb-3 drop-shadow-2xl"
+              transition={{ duration: 1.2, delay: 0.3, ease: "easeOut" }}
+              className="text-2xl md:text-4xl font-serif text-white mb-2 drop-shadow-2xl font-black italic tracking-wide"
             >
               Sera Fashion House
             </motion.h1>
             <motion.p 
               initial={{ opacity: 0, letterSpacing: "0.5em" }}
               animate={{ opacity: 1, letterSpacing: "0.2em" }}
-              transition={{ duration: 2, delay: 1, ease: "easeOut" }}
-              className="text-gold-200 font-sans uppercase text-[9px] md:text-xs font-medium drop-shadow-lg"
+              transition={{ duration: 1.5, delay: 0.8, ease: "easeOut" }}
+              className="text-gold-200 font-sans uppercase text-[9px] md:text-xs font-bold drop-shadow-lg"
             >
               Premium Three Piece & Saree Collection
             </motion.p>

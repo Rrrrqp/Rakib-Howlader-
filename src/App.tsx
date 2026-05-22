@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { motion, AnimatePresence } from 'motion/react';
 import FormHeader from './components/FormHeader';
@@ -20,6 +20,8 @@ import { createOrder } from './services/orderService';
 import { Order, CartItem } from './types';
 import { ShoppingBag, Loader2, Database, RefreshCcw, ArrowDown, ArrowLeft, ShoppingCart, Trash2, Plus, Minus, CheckCircle2 } from 'lucide-react';
 import BANNER_IMAGE from './assets/images/sera_fashion_banner_1779021192580.png';
+import brandLogo from './assets/images/sfh_logo_1779435027377.png';
+import { getBrandLogoSettings } from './services/settingsService';
 import ProductShowcase from './components/ProductShowcase';
 import { Product as ProductType } from './types';
 
@@ -35,6 +37,21 @@ export default function App() {
   const [authError, setAuthError] = useState(false);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [showCart, setShowCart] = useState(false);
+  const [logoUrl, setLogoUrl] = useState<string>(brandLogo);
+
+  useEffect(() => {
+    async function loadLogo() {
+      try {
+        const logo = await getBrandLogoSettings();
+        if (logo) {
+          setLogoUrl(logo);
+        }
+      } catch (err) {
+        console.error("Failed to load brand logo:", err);
+      }
+    }
+    loadLogo();
+  }, []);
 
   const handleAdminAccess = () => {
     if (adminPhone === '01724628453' && adminPassword === 'Rakib656@') {
@@ -285,6 +302,33 @@ export default function App() {
                         // Optional: trigger some UI feedback
                       }}
                     />
+
+                    {/* Centered Professional Logo Segment */}
+                    <div className="flex flex-col items-center justify-center py-6">
+                      <motion.div
+                        initial={{ opacity: 0, scale: 0.8 }}
+                        whileInView={{ opacity: 1, scale: 1 }}
+                        viewport={{ once: true }}
+                        transition={{ duration: 1.2, ease: "easeOut" }}
+                        className="relative p-1.5 bg-black/85 backdrop-blur-md rounded-full border-[3px] border-brand-gold shadow-2xl flex items-center justify-center w-28 h-28 md:w-36 md:h-36"
+                      >
+                        <img 
+                          src={logoUrl} 
+                          alt="Sera Fashion House Centered Logo" 
+                          className="w-full h-full rounded-full object-cover"
+                          referrerPolicy="no-referrer"
+                        />
+                      </motion.div>
+                      <motion.p
+                        initial={{ opacity: 0, y: 10 }}
+                        whileInView={{ opacity: 1, y: 0 }}
+                        viewport={{ once: true }}
+                        transition={{ duration: 1, delay: 0.3 }}
+                        className="text-[11px] font-black uppercase tracking-[0.3em] text-brand-gold mt-3 font-serif"
+                      >
+                        Sera Fashion House
+                      </motion.p>
+                    </div>
 
                     <ReviewSection />
 

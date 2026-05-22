@@ -6,7 +6,7 @@ import {
   Search, Calendar, RefreshCw, Download, Eye, Edit, Trash2, Printer, 
   CheckCircle2, Package, Truck, XCircle, Send, Filter, MoreVertical, ChevronDown,
   Box, AlertCircle, Sparkles, X, Phone, MapPin, User, Save, Heart, Quote,
-  Database, ListChecks, Grid
+  Database, ListChecks, Grid, Settings
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useReactToPrint } from 'react-to-print';
@@ -15,9 +15,10 @@ import { downloadAsPng } from '../lib/downloadUtils';
 import { DigitalInvoice } from './DigitalInvoice';
 import { CashMemoModal } from './CashMemoModal';
 import ProductManager from './ProductManager';
+import SettingsManager from './SettingsManager';
 
 export default function AdminDashboard() {
-  const [activeTab, setActiveTab] = useState<'orders' | 'products'>('orders');
+  const [activeTab, setActiveTab] = useState<'orders' | 'products' | 'settings'>('orders');
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -197,6 +198,13 @@ export default function AdminDashboard() {
               <Grid size={14} />
               Products
             </button>
+            <button 
+              onClick={() => setActiveTab('settings')}
+              className={`flex items-center gap-2 px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'settings' ? 'bg-rose-600 text-white shadow-lg' : 'text-gray-400 hover:text-white'}`}
+            >
+              <Settings size={14} />
+              Settings
+            </button>
           </div>
 
           <div className="hidden md:flex items-center gap-2">
@@ -230,6 +238,8 @@ export default function AdminDashboard() {
         
         {activeTab === 'products' ? (
           <ProductManager />
+        ) : activeTab === 'settings' ? (
+          <SettingsManager />
         ) : (
           <>
             {/* Marketing Analysis Section */}

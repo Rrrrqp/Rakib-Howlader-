@@ -1,12 +1,30 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Order } from '../types';
 import { ShoppingBag, Phone, MapPin, Calendar, Hash } from 'lucide-react';
+import brandLogo from '../assets/images/sfh_logo_1779435027377.png';
+import { getBrandLogoSettings } from '../services/settingsService';
 
 interface DigitalInvoiceProps {
   order: Order;
 }
 
 export const DigitalInvoice = React.forwardRef<HTMLDivElement, DigitalInvoiceProps>(({ order }, ref) => {
+  const [logoUrl, setLogoUrl] = useState<string>(brandLogo);
+
+  useEffect(() => {
+    async function loadLogo() {
+      try {
+        const logo = await getBrandLogoSettings();
+        if (logo) {
+          setLogoUrl(logo);
+        }
+      } catch (err) {
+        console.error("Failed to load invoice logo:", err);
+      }
+    }
+    loadLogo();
+  }, []);
+
   const deliveryCharge = order.deliveryCharge || 0;
   const discountAmount = order.discountAmount || 0;
   const netTotal = order.totalAmount;
@@ -20,13 +38,21 @@ export const DigitalInvoice = React.forwardRef<HTMLDivElement, DigitalInvoicePro
     <div ref={ref} className="bg-white p-4 md:p-8 max-w-[600px] mx-auto text-brand-charcoal font-sans relative overflow-hidden">
       {/* Header Section */}
       <div className="flex justify-between items-start mb-4 gap-2">
-        <div>
-          <h1 className="text-lg md:text-xl font-serif font-black text-brand-gold uppercase tracking-tight">
-            SERA FASHION HOUSE
-          </h1>
-          <p className="text-[10px] md:text-xs font-medium text-gray-500 italic mt-0.5 font-serif">
-            Premium Quality, Exceptional Style
-          </p>
+        <div className="flex items-center gap-3">
+          <img 
+            src={logoUrl} 
+            alt="Sera Fashion House Logo" 
+            className="w-10 h-10 md:w-12 md:h-12 rounded-full object-cover border border-brand-gold shadow-md"
+            referrerPolicy="no-referrer"
+          />
+          <div>
+            <h1 className="text-lg md:text-xl font-serif font-black text-brand-gold uppercase tracking-tight">
+              SERA FASHION HOUSE
+            </h1>
+            <p className="text-[10px] md:text-xs font-medium text-gray-500 italic mt-0.5 font-serif">
+              Premium Quality, Exceptional Style
+            </p>
+          </div>
         </div>
         <div className="text-right space-y-1 md:space-y-2">
           <div className="inline-flex items-center gap-1.5 bg-brand-gold text-white px-2 py-1 md:px-3 md:py-1.5 rounded-full text-[8px] md:text-[9px] font-black uppercase tracking-widest shadow-sm font-serif">
