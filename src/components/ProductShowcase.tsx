@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { getAllProducts } from '../services/productService';
 import { Product } from '../types';
-import { ShoppingBag, Eye, ShoppingCart, Loader2, Sparkles, X, Star, Share2, Info, Hash } from 'lucide-react';
+import { ShoppingBag, Eye, ShoppingCart, Loader2, Sparkles, X, Star, Share2, Info, Hash, ArrowDown, ArrowUp, Flame, SlidersHorizontal } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 interface ProductShowcaseProps {
@@ -14,6 +14,7 @@ export default function ProductShowcase({ onOrderNow, onAddToCart }: ProductShow
   const [loading, setLoading] = useState(true);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [activeCategory, setActiveCategory] = useState<string>('ALL');
+  const [sortBy, setSortBy] = useState<'default' | 'price-desc' | 'price-asc' | 'top-selling'>('default');
 
   const [quantity, setQuantity] = useState(1);
   const [selectedSize, setSelectedSize] = useState('38');
@@ -49,6 +50,26 @@ export default function ProductShowcase({ onOrderNow, onAddToCart }: ProductShow
     }
   };
 
+  const sortedProducts = useMemo(() => {
+    let filtered = products.filter(p => activeCategory === 'ALL' || p.category === activeCategory);
+    let result = [...filtered];
+    
+    if (sortBy === 'price-desc') {
+      result.sort((a, b) => b.price - a.price);
+    } else if (sortBy === 'price-asc') {
+      result.sort((a, b) => a.price - b.price);
+    } else if (sortBy === 'top-selling') {
+      // High pseudo relevance algorithm logic for Top-Selling tag
+      const getPseudoSales = (p: Product) => {
+        const codeNum = parseInt(p.productCode.replace(/\D/g, '')) || 0;
+        const discountVal = p.discount || 0;
+        return (codeNum % 31) + (discountVal * 1.5) + (p.title.length * 2);
+      };
+      result.sort((a, b) => getPseudoSales(b) - getPseudoSales(a));
+    }
+    return result;
+  }, [products, activeCategory, sortBy]);
+
   if (loading) {
     return (
       <div className="max-w-4xl mx-auto px-4 grid grid-cols-1 md:grid-cols-2 gap-6 pb-12">
@@ -77,7 +98,7 @@ export default function ProductShowcase({ onOrderNow, onAddToCart }: ProductShow
       </div>
 
       {/* Category Tabs */}
-      <div className="max-w-4xl mx-auto px-4 mb-10 overflow-hidden">
+      <div className="max-w-4xl mx-auto px-4 mb-6 overflow-hidden">
         <div className="flex bg-white/50 p-1.5 rounded-2xl border border-gray-100 overflow-x-auto no-scrollbar gap-1.5 scroll-px-4 flex-nowrap">
           {categories.map((cat) => (
             <button
@@ -94,9 +115,62 @@ export default function ProductShowcase({ onOrderNow, onAddToCart }: ProductShow
         </div>
       </div>
 
+      {/* Sorting Tabs bar */}
+      <div className="max-w-4xl mx-auto px-4 mb-10">
+        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 p-4 bg-[#fbfbfa] border border-gray-100 rounded-3xl">
+          <div className="flex items-center gap-2">
+            <SlidersHorizontal size={14} className="text-brand-gold shrink-0" />
+            <span className="text-[10px] md:text-xs font-black uppercase tracking-widest text-[#1a1c2e] flex items-center gap-1.5">
+              ফিল্টার ও সর্টিং <span className="text-gray-400 font-normal">| Product Sort Options</span>
+            </span>
+          </div>
+
+          <div className="flex bg-white p-1 rounded-2xl border border-gray-150 overflow-x-auto w-full md:w-auto no-scrollbar gap-1 flex-nowrap scroll-px-1">
+            <button
+              onClick={() => setSortBy('default')}
+              className={`px-4 py-2.5 rounded-xl text-[9px] md:text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap flex items-center gap-1.5 shrink-0
+                ${sortBy === 'default' 
+                  ? 'bg-brand-charcoal text-white shadow-md font-black' 
+                  : 'text-gray-500 hover:text-brand-charcoal hover:bg-gray-50'}`}
+            >
+              সবগুলো
+            </button>
+            <button
+              onClick={() => setSortBy('price-asc')}
+              className={`px-4 py-2.5 rounded-xl text-[9px] md:text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap flex items-center gap-1.5 shrink-0
+                ${sortBy === 'price-asc' 
+                  ? 'bg-brand-charcoal text-white shadow-md font-black' 
+                  : 'text-gray-500 hover:text-brand-charcoal hover:bg-gray-50'}`}
+            >
+              <ArrowUp size={11} className="text-amber-500" />
+              কম দাম থেকে বেশি
+            </button>
+            <button
+              onClick={() => setSortBy('price-desc')}
+              className={`px-4 py-2.5 rounded-xl text-[9px] md:text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap flex items-center gap-1.5 shrink-0
+                ${sortBy === 'price-desc' 
+                  ? 'bg-brand-charcoal text-white shadow-md font-black' 
+                  : 'text-gray-500 hover:text-brand-charcoal hover:bg-gray-50'}`}
+            >
+              <ArrowDown size={11} className="text-amber-500" />
+              বেশি দাম থেকে কম
+            </button>
+            <button
+              onClick={() => setSortBy('top-selling')}
+              className={`px-4 py-2.5 rounded-xl text-[9px] md:text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap flex items-center gap-1.5 shrink-0
+                ${sortBy === 'top-selling' 
+                  ? 'bg-amber-500 text-[#1a1c2e] shadow-md font-black' 
+                  : 'text-gray-500 hover:text-brand-charcoal hover:bg-gray-50'}`}
+            >
+              <Flame size={11} fill={sortBy === 'top-selling' ? 'currentColor' : 'none'} className={sortBy === 'top-selling' ? 'text-[#1a1c2e] animate-pulse' : 'text-orange-500'} />
+              টপ সেলিং
+            </button>
+          </div>
+        </div>
+      </div>
+
       <div className="max-w-6xl mx-auto px-2 md:px-4 grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-8">
-        {products
-          .filter(p => activeCategory === 'ALL' || p.category === activeCategory)
+        {sortedProducts
           .map((product) => {
           const discount = product.discount || 0;
           const originalPrice = product.price + discount;
@@ -119,11 +193,21 @@ export default function ProductShowcase({ onOrderNow, onAddToCart }: ProductShow
                   alt={product.title}
                   className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
                 />
-                <div className="absolute top-2 left-2 md:top-4 md:left-4">
-                   <div className="bg-brand-charcoal/80 backdrop-blur-md text-white text-[7px] md:text-[9px] font-black uppercase tracking-widest px-2 py-1 md:px-3 md:py-1.5 rounded-full inline-flex items-center gap-1 md:gap-2">
+                
+                {/* Product Tags Badges */}
+                <div className="absolute top-2 left-2 md:top-4 md:left-4 flex flex-col gap-1.5">
+                   <div className="bg-brand-charcoal/80 backdrop-blur-md text-white text-[7px] md:text-[9px] font-black uppercase tracking-widest px-2 py-1 md:px-3 md:py-1.5 rounded-full inline-flex items-center gap-1 md:gap-2 shadow">
                      <Hash size={8} className="text-brand-gold" />
                      {product.productCode}
                    </div>
+                   
+                   {/* Top Selling Badge option indicators */}
+                   {(sortBy === 'top-selling' || discount > 150) && (
+                     <span className="bg-[#ffc300] backdrop-blur-md text-[#10121d] text-[6px] md:text-[8.5px] font-bold uppercase tracking-widest px-2 py-1 rounded-full inline-flex items-center gap-0.5 shadow-md">
+                       <Flame size={8} fill="currentColor" className="text-red-650 shrink-0" />
+                       Hanger Hot
+                     </span>
+                   )}
                 </div>
               </div>
  
