@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { getAllProducts } from '../services/productService';
 import { Product } from '../types';
-import { ShoppingBag, Eye, ShoppingCart, Loader2, Sparkles, X, Star, Share2, Info, Hash, ArrowDown, ArrowUp, Flame, SlidersHorizontal } from 'lucide-react';
+import { ShoppingBag, Eye, ShoppingCart, Loader2, Sparkles, X, Star, Share2, Info, Hash, ArrowDown, ArrowUp, Flame, SlidersHorizontal, Gift, Trophy } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 interface ProductShowcaseProps {
@@ -169,6 +169,50 @@ export default function ProductShowcase({ onOrderNow, onAddToCart }: ProductShow
         </div>
       </div>
 
+      {/* Interactive Premium Discount Invitation Banner */}
+      <div className="max-w-4xl mx-auto px-4 mb-10">
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.95 }}
+          whileInView={{ opacity: 1, scale: 1 }}
+          viewport={{ once: true }}
+          className="relative overflow-hidden rounded-[2.5rem] bg-gradient-to-r from-[#171a2e] via-[#232742] to-[#121424] text-white p-6 md:p-8 shadow-xl border border-white/10"
+        >
+          {/* Background Decorative patterns */}
+          <div className="absolute top-0 right-0 w-32 h-32 bg-[#e2b755]/10 rounded-full blur-2xl pointer-events-none" />
+          <div className="absolute -bottom-10 -left-10 w-40 h-40 bg-rose-500/10 rounded-full blur-2xl pointer-events-none" />
+
+          <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-6">
+            <div className="flex items-center gap-4 text-center md:text-left flex-col md:flex-row">
+              <div className="p-4 bg-[#e2b755]/10 text-[#e2b755] rounded-3xl border border-[#e2b755]/20 animate-pulse shrink-0">
+                <Trophy size={32} className="text-[#e2b755]" fill="currentColor" />
+              </div>
+              <div className="space-y-1.5">
+                <div className="inline-flex items-center gap-1.5 bg-rose-500/20 text-rose-300 border border-rose-500/30 px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest">
+                  <span className="w-1.5 h-1.5 bg-rose-500 rounded-full animate-ping" />
+                  ধামাকা অফার • Magic Gift Card
+                </div>
+                <h3 className="text-base md:text-xl font-serif font-black tracking-tight text-white leading-snug">
+                  অর্ডার করলেই <span className="text-[#e2b755] underline decoration-wavy">১০% থেকে ২৫% পর্যন্ত</span> নিশ্চিত সারপ্রাইজ ডিসকাউন্ট!
+                </h3>
+                <p className="text-gray-300 text-[11px] md:text-xs leading-relaxed max-w-xl font-medium">
+                  যেকোনো ড্রেস পছন্দ করে <b>"অর্ডার করুন"</b> বাটনে চাপ দিলেই অর্ডার ফরমে পাবেন একটি ম্যাজিক গিফট কার্ড। যেকোনো ১টি অপশন সিলেক্ট করলেই আপনি নিশ্চিত <b>১০%, ১৫%, ২০% অথবা ২৫% স্পেশাল ডিসকাউন্ট</b> পেয়ে যাবেন!
+                </p>
+              </div>
+            </div>
+
+            <div className="shrink-0 w-full md:w-auto text-center">
+              <div className="inline-flex flex-col items-center bg-white/5 border border-white/10 px-6 py-4 rounded-3xl text-center shadow-lg backdrop-blur-md">
+                <span className="text-[9px] uppercase font-black text-[#e2b755] tracking-widest mb-1">কোনো কুপন কোড লাগবে না</span>
+                <span className="text-xs font-bold text-gray-300">যেকোনো ১টি কার্ড পছন্দ করলেই</span>
+                <span className="text-lg font-black text-rose-450 mt-1 flex items-center gap-1 justify-center">
+                  <Gift size={16} /> ২৫% পর্যন্ত অফ!
+                </span>
+              </div>
+            </div>
+          </div>
+        </motion.div>
+      </div>
+
       <div className="max-w-6xl mx-auto px-2 md:px-4 grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-8">
         {sortedProducts
           .map((product) => {
@@ -227,6 +271,12 @@ export default function ProductShowcase({ onOrderNow, onAddToCart }: ProductShow
                   {discount > 0 && (
                     <span className="text-[10px] md:text-sm text-gray-400 line-through font-medium">৳{originalPrice.toLocaleString()}</span>
                   )}
+                </div>
+
+                {/* Micro campaign discount tip */}
+                <div className="bg-rose-50/70 border border-rose-100 rounded-xl p-2 flex items-center justify-center gap-1.5 text-[#e11d48] text-[9px] md:text-[10px] font-black tracking-normal select-none">
+                  <Gift size={11} className="animate-bounce text-rose-500 shrink-0" />
+                  <span>অর্ডারে ১০%-২৫% নিশ্চিত ডিসকাউন্ট!</span>
                 </div>
  
                 <div className="pt-1 md:pt-2">
@@ -333,6 +383,18 @@ export default function ProductShowcase({ onOrderNow, onAddToCart }: ProductShow
                 <div className="flex items-center gap-2 text-xs font-black text-gray-900 pt-2">
                   <span>Brand :</span>
                   <span className="text-gray-500 uppercase tracking-widest">{selectedProduct.brand || 'Shera Fashion House'}</span>
+                </div>
+
+                {/* Modal Discount Alert Callout */}
+                <div className="bg-[#10121d] text-white p-4 rounded-3xl border border-white/5 space-y-2 shadow-lg relative overflow-hidden">
+                  <div className="absolute top-0 right-0 w-20 h-20 bg-[#e2b755]/10 rounded-full blur-xl pointer-events-none" />
+                  <div className="flex items-center gap-2">
+                    <Trophy size={14} className="text-[#e2b755]" fill="currentColor" />
+                    <span className="text-[10px] font-black uppercase tracking-widest text-[#e2b755] space-x-1">সারপ্রাইজ গিফট কার্ড অফার</span>
+                  </div>
+                  <p className="text-[11px] text-gray-300 leading-normal font-medium">
+                    এই পণ্যটি অর্ডার করলেই নিচে <b>"সারপ্রাইজ মেগা ডিসকাউন্ট কার্ড"</b> পেয়ে যাবেন। যেকোনো একটি ঘর সিলেক্ট করলেই সাথে সাথে আপনার অর্ডারে <b>১০% থেকে ২৫% পর্যন্ত অতিরিক্ত স্পেশাল ডিসকাউন্ট</b> অ্যাক্টিভ হয়ে যাবে!
+                  </p>
                 </div>
 
                 <div className="flex flex-col gap-4 pt-4">

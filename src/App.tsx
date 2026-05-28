@@ -40,6 +40,8 @@ export default function App() {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [showCart, setShowCart] = useState(false);
   const [logoUrl, setLogoUrl] = useState<string>(brandLogo);
+  const [checkoutMode, setCheckoutMode] = useState(false);
+  const [showAddSuccess, setShowAddSuccess] = useState(false);
 
   // Initialize Visitor Tracking
   useEffect(() => {
@@ -103,13 +105,15 @@ export default function App() {
   const upazilaWatch = watch('upazila');
 
   useEffect(() => {
-    updateVisitorCustomerInfo({
-      customerName: customerNameWatch,
-      mobileNumber: mobileNumberWatch,
-      district: districtWatch,
-      upazila: upazilaWatch
-    });
-  }, [customerNameWatch, mobileNumberWatch, districtWatch, upazilaWatch]);
+    if (checkoutMode && (customerNameWatch || mobileNumberWatch || districtWatch || upazilaWatch)) {
+      updateVisitorCustomerInfo({
+        customerName: customerNameWatch,
+        mobileNumber: mobileNumberWatch,
+        district: districtWatch,
+        upazila: upazilaWatch
+      });
+    }
+  }, [customerNameWatch, mobileNumberWatch, districtWatch, upazilaWatch, checkoutMode]);
 
   const onSubmit = async (data: any) => {
     if (cart.length === 0) {
@@ -161,9 +165,6 @@ export default function App() {
       setSubmitting(false);
     }
   };
-
-  const [checkoutMode, setCheckoutMode] = useState(false);
-  const [showAddSuccess, setShowAddSuccess] = useState(false);
 
   // Handle stage transition when checkoutMode changes
   useEffect(() => {

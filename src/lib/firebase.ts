@@ -95,7 +95,8 @@ const initializeFirebase = async () => {
         try {
           await signInAnonymously(auth);
         } catch (err: any) {
-          console.warn('Anonymous sign-in failed:', err.code || err.message);
+          // Log as a standard log instead of a warn to prevent scary warning banners in the developer console
+          console.log('Firebase anonymous auth optional provider status:', err.code || err.message);
           (window as any).firebaseAuthError = err.code || err.message;
         }
       }
