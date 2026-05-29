@@ -45,6 +45,9 @@ export interface Order {
   createdAt: string;
   productId?: string;
   productImage?: string;
+  courierId?: string;
+  courierTrackingCode?: string;
+  courierStatus?: string;
 }
 
 export interface Product {
@@ -69,6 +72,9 @@ export interface BrandSettings {
   telegramChatId?: string;
   soundEnabled?: boolean;
   pushEnabled?: boolean;
+  steadfastApiKey?: string;
+  steadfastSecretKey?: string;
+  steadfastMerchantId?: string;
 }
 
 export interface ProductView {

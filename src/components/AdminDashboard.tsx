@@ -1,5 +1,6 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { getAllOrders, updateOrderStatus, updateOrder, deleteOrder } from '../services/orderService';
+import { getBrandSettings } from '../services/settingsService';
 import { Order, Category } from '../types';
 import { 
   LayoutDashboard, Receipt, Gift, LogOut, ShoppingBag, TrendingUp, Clock, 
@@ -41,6 +42,120 @@ export default function AdminDashboard() {
   const [isWelcomeGiftOpen, setIsWelcomeGiftOpen] = useState(false);
   const [giftCustomerName, setGiftCustomerName] = useState('');
 
+  // Steadfast state variables
+  const [brandSettings, setBrandSettings] = useState<any>(null);
+  const [bookingOrder, setBookingOrder] = useState<Order | null>(null);
+  const [isBooking, setIsBooking] = useState(false);
+  const [bookingForm, setBookingForm] = useState({
+    invoice: '',
+    recipient_name: '',
+    recipient_phone: '',
+    recipient_address: '',
+    cod_amount: 0,
+    note: '',
+    weight: 0.5
+  });
+  const [bookingError, setBookingError] = useState<string | null>(null);
+
+  const startBooking = (order: Order) => {
+    // Generate order products note
+    let orderProductNote = '';
+    if (order.items && order.items.length > 0) {
+      orderProductNote = order.items.map(item => `${item.productTitle} (Code: ${item.productCode}, Qty: ${item.quantity}, Size: ${item.size})`).join(', ');
+    } else {
+      orderProductNote = `${order.category || 'Product'} (Code: ${order.productCode || 'N/A'}, Qty: ${order.quantity || 1})`;
+    }
+    if (order.note) {
+      orderProductNote += ` | Note: ${order.note}`;
+    }
+
+    setBookingOrder(order);
+    setBookingForm({
+      invoice: order.orderId,
+      recipient_name: order.customerName,
+      recipient_phone: order.mobileNumber,
+      recipient_address: `${order.address}, ${order.upazila || ''}, ${order.district || ''}`.replace(/,\s*,/g, ',').replace(/\s+/g, ' ').trim(),
+      cod_amount: order.totalAmount,
+      note: orderProductNote,
+      weight: 0.5
+    });
+    setBookingError(null);
+  };
+
+  const handleCreateBooking = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!bookingOrder) return;
+    if (!brandSettings?.steadfastApiKey || !brandSettings?.steadfastSecretKey) {
+      setBookingError("কুরিয়ার সেটিংস পাওয়া যায়নি। দয়া করে এডমিন সেটিংস থেকে API Key ও Secret Key সেট করুন।");
+      return;
+    }
+
+    setIsBooking(true);
+    setBookingError(null);
+
+    try {
+      const response = await fetch("/api/steadfast/create-order", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          apiKey: brandSettings.steadfastApiKey,
+          secretKey: brandSettings.steadfastSecretKey,
+          invoice: bookingForm.invoice,
+          recipient_name: bookingForm.recipient_name,
+          recipient_phone: bookingForm.recipient_phone,
+          recipient_address: bookingForm.recipient_address,
+          cod_amount: Number(bookingForm.cod_amount),
+          note: bookingForm.note,
+          weight: Number(bookingForm.weight)
+        })
+      });
+
+      const result = await response.json();
+      if (response.ok && result.success) {
+        // Successful booking!
+        const consignment = result.data.consignment || result.data || {};
+        
+        // Update order status on Firestore and locally
+        await updateOrder(bookingOrder.id!, {
+          status: 'Shipped',
+          courierId: String(consignment.consignment_id || consignment.id || ''),
+          courierTrackingCode: String(consignment.tracking_code || consignment.tracking_code || ''),
+          courierStatus: String(consignment.status || 'In Review')
+        });
+
+        // Update local state orders list
+        setOrders(prev => prev.map(o => o.id === bookingOrder.id ? {
+          ...o,
+          status: 'Shipped',
+          courierId: String(consignment.consignment_id || consignment.id || 'booked'),
+          courierTrackingCode: String(consignment.tracking_code || ''),
+          courierStatus: String(consignment.status || 'In Review')
+        } : o));
+
+        // Update the active viewingOrder modal so the tracking updates instantly!
+        setViewingOrder(prev => prev && prev.id === bookingOrder.id ? {
+          ...prev,
+          status: 'Shipped',
+          courierId: String(consignment.consignment_id || consignment.id || 'booked'),
+          courierTrackingCode: String(consignment.tracking_code || ''),
+          courierStatus: String(consignment.status || 'In Review')
+        } : prev);
+
+        setBookingOrder(null);
+        alert(`অর্ডারটি সফলভাবে স্টেট ফাস্ট কুরিয়ারে বুকিং হয়েছে!\nট্র্যাকিং কোড: ${consignment.tracking_code || 'N/A'}`);
+      } else {
+        setBookingError(result.message || "স্টেট ফাস্ট কুরিয়ারে অর্ডার বুকিং করতে ব্যর্থ হয়েছে।");
+      }
+    } catch (err: any) {
+      console.error("Booking error:", err);
+      setBookingError(err.message || "সার্ভার এর সাথে কানেকশন ব্যর্থ হয়েছে। দয়া করে আবার চেষ্টা করুন।");
+    } finally {
+      setIsBooking(false);
+    }
+  };
+
   const printRef = useRef<HTMLDivElement>(null);
   const giftPrintRef = useRef<HTMLDivElement>(null);
   const invoiceDownloadRef = useRef<HTMLDivElement>(null);
@@ -52,8 +167,18 @@ export default function AdminDashboard() {
 
   const fetchOrders = async () => {
     setLoading(true);
-    const data = await getAllOrders();
-    setOrders(data);
+    try {
+      const [ordersData, settingsData] = await Promise.all([
+        getAllOrders(),
+        getBrandSettings()
+      ]);
+      setOrders(ordersData);
+      setBrandSettings(settingsData);
+    } catch (e) {
+      console.error("Failed to load dashboard data:", e);
+      const ordersData = await getAllOrders();
+      setOrders(ordersData);
+    }
     setLoading(false);
   };
 
@@ -847,6 +972,94 @@ export default function AdminDashboard() {
                   </div>
                 </div>
 
+                {/* SteadFast Courier Status / Action Card */}
+                <div className="bg-gradient-to-tr from-rose-50/20 via-white to-red-50/10 rounded-[2.5rem] border border-rose-100 p-8 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="p-3 bg-rose-600 text-white rounded-2xl shadow-md shadow-rose-600/10">
+                        <Truck size={20} />
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-black text-[#1a1c2e] uppercase tracking-wider">স্টেট ফাস্ট কুরিয়ার বুকিং (SteadFast Courier)</h3>
+                        <p className="text-[10px] text-rose-600 font-bold mt-0.5">অটোমেটেড স্টেট ফাস্ট কুরিয়ার বুকিং মডিউল</p>
+                      </div>
+                    </div>
+                    {viewingOrder.courierTrackingCode && (
+                      <span className="bg-emerald-50 text-emerald-700 text-[10px] font-black uppercase tracking-wider px-3 py-1.5 rounded-full border border-emerald-100">
+                        ✓ booked
+                      </span>
+                    )}
+                  </div>
+
+                  {viewingOrder.courierTrackingCode ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
+                      <div className="bg-gray-50 border border-gray-100 p-4 rounded-2xl space-y-1">
+                        <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest block">Consignment ID</span>
+                        <strong className="text-sm font-black text-gray-800 font-mono block">{viewingOrder.courierId || 'N/A'}</strong>
+                      </div>
+                      <div className="bg-gray-50 border border-gray-100 p-4 rounded-2xl relative overflow-hidden flex flex-col justify-between group">
+                        <div>
+                          <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest block">Tracking Code</span>
+                          <strong className="text-sm font-black text-rose-600 font-mono block">{viewingOrder.courierTrackingCode}</strong>
+                        </div>
+                        <div className="flex gap-2 mt-2">
+                          <button
+                            onClick={() => {
+                              navigator.clipboard.writeText(viewingOrder.courierTrackingCode || '');
+                              alert("ট্র্যাকিং কোড কপি করা হয়েছে!");
+                            }}
+                            className="bg-white hover:bg-gray-100 border border-gray-250 text-gray-700 px-3 py-1.5 rounded-lg text-[9px] font-black uppercase transition-all flex items-center gap-1 cursor-pointer"
+                          >
+                            Copy Code
+                          </button>
+                          <a
+                            href={`https://portal.steadfast.com.bd/tracking/${viewingOrder.courierTrackingCode}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="bg-[#1a1c2e] hover:bg-[#252841] text-white px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all flex items-center gap-1"
+                          >
+                            Track Live
+                          </a>
+                        </div>
+                      </div>
+                      <div className="col-span-1 md:col-span-2 bg-emerald-50/20 border border-emerald-150 p-4 rounded-2xl flex items-center justify-between">
+                        <div>
+                          <span className="text-[9px] font-black text-emerald-600/70 uppercase tracking-widest block">Current Dispatch Status</span>
+                          <span className="text-xs font-black text-emerald-800 uppercase mt-0.5 block">{viewingOrder.courierStatus || 'In Review'}</span>
+                        </div>
+                        <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse mr-1" />
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="pt-2">
+                      {!brandSettings?.steadfastApiKey ? (
+                        <div className="bg-amber-50 text-amber-800 p-4 rounded-2xl border border-amber-100 text-xs font-bold leading-relaxed space-y-2">
+                          <div className="flex items-center gap-2">
+                            <AlertCircle size={16} className="text-amber-600" />
+                            <span>কুরিয়ার সার্ভিস কনফিগার করা হয়নি!</span>
+                          </div>
+                          <p className="text-[11px] text-amber-700 font-normal leading-relaxed">
+                            অর্ডারটি সরাসরি স্টেট ফাস্ট কুরিয়ার সার্ভিসে বুকিং করার জন্য দয়া করে <strong>ব্র্যান্ড ও নোটিফিকেশন সেটিংস (Settings Manager)</strong> থেকে আপনার এপিআই তথ্য সেট আপ করুন।
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="flex flex-col gap-3">
+                          <p className="text-xs text-gray-500 leading-relaxed font-normal">
+                            আপনি কি এই অর্ডারটি সরাসরি স্টেট ফাস্ট কুরিয়ার সার্ভিসে পাঠাতে চান? কাস্টমারের নাম, ফোন নম্বর, ঠিকানা এবং ক্যাশ অন ডেলিভারি (COD) এমাউন্ট অটো-ফিল হয়ে যাবে!
+                          </p>
+                          <button
+                            onClick={() => startBooking(viewingOrder)}
+                            className="bg-rose-600 hover:bg-rose-700 hover:shadow-lg active:scale-95 text-white py-3 px-6 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 shadow-md w-full cursor-pointer"
+                          >
+                            <Truck size={16} />
+                            স্টেট ফাস্ট কুরিয়ারে বুকিং করুন
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
                 {/* Special Note */}
                 <div className="relative group">
                   <div className="absolute inset-0 bg-rose-50 rounded-[2.5rem] -rotate-1 group-hover:rotate-0 transition-transform" />
@@ -1361,6 +1574,162 @@ export default function AdminDashboard() {
                     "Professional Tip: Send this high-quality card to your customer's WhatsApp or Messenger to build lasting brand loyalty."
                   </p>
                 </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* SteadFast Courier Booking Modal */}
+      <AnimatePresence>
+        {bookingOrder && (
+          <div className="fixed inset-0 z-[250] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setBookingOrder(null)}
+              className="absolute inset-0 bg-[#0f111a]/75 backdrop-blur-md"
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95, y: 30 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 30 }}
+              className="bg-white w-full max-w-2xl rounded-[3rem] shadow-2xl relative z-10 overflow-hidden border border-red-50 text-left"
+            >
+              <div className="p-8">
+                <button 
+                  onClick={() => setBookingOrder(null)}
+                  className="absolute top-6 right-6 p-2 bg-gray-50 text-gray-400 hover:text-rose-500 rounded-xl transition-all cursor-pointer"
+                >
+                  <X size={20} />
+                </button>
+
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="p-3 bg-rose-600 text-white rounded-2xl shadow-md shadow-rose-600/10">
+                    <Truck size={24} />
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-black text-[#1a1c2e]">কনসাইনমেন্ট বুকিং ফরম (Consignment Dispatch)</h2>
+                    <p className="text-[10px] font-bold text-rose-600 uppercase tracking-widest mt-0.5 font-mono">
+                      SteadFast Courier Logistics Automated Order Ingress
+                    </p>
+                  </div>
+                </div>
+
+                {bookingError && (
+                  <div className="mb-6 p-4 bg-rose-50 border border-rose-200 rounded-2xl text-rose-700 text-xs font-bold flex items-center gap-2">
+                    <AlertCircle size={16} />
+                    <span>{bookingError}</span>
+                  </div>
+                )}
+
+                <form onSubmit={handleCreateBooking} className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    
+                    {/* Invoice Ref ID */}
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-black text-gray-500 uppercase tracking-widest pl-2 block">১. ইনভয়েস নম্বর (Invoice/Order Ref):</label>
+                      <input 
+                        type="text" 
+                        required
+                        value={bookingForm.invoice}
+                        onChange={(e) => setBookingForm(prev => ({ ...prev, invoice: e.target.value }))}
+                        className="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 text-xs font-bold outline-none focus:ring-2 focus:ring-rose-500/20 transition-all font-mono text-[#1a1c2e]"
+                      />
+                    </div>
+
+                    {/* Cod Amount */}
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-black text-gray-500 uppercase tracking-widest pl-2 block">২. ক্যাশ অন ডেলিভারি (COD Amount - ৳):</label>
+                      <input 
+                        type="number" 
+                        required
+                        value={bookingForm.cod_amount}
+                        onChange={(e) => setBookingForm(prev => ({ ...prev, cod_amount: Number(e.target.value) }))}
+                        className="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 text-xs font-bold outline-none focus:ring-2 focus:ring-rose-500/20 transition-all text-rose-600 font-sans"
+                      />
+                    </div>
+
+                    {/* Recipient Name */}
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-black text-gray-500 uppercase tracking-widest pl-2 block">৩. কাস্টমারের নাম (Recipient Name):</label>
+                      <input 
+                        type="text" 
+                        required
+                        value={bookingForm.recipient_name}
+                        onChange={(e) => setBookingForm(prev => ({ ...prev, recipient_name: e.target.value }))}
+                        className="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 text-xs font-bold outline-none focus:ring-2 focus:ring-rose-500/20 transition-all text-[#1a1c2e]"
+                      />
+                    </div>
+
+                    {/* Recipient Phone */}
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-black text-gray-500 uppercase tracking-widest pl-2 block">৪. মোবাইল নম্বর (Recipient Phone):</label>
+                      <input 
+                        type="text" 
+                        required
+                        value={bookingForm.recipient_phone}
+                        onChange={(e) => setBookingForm(prev => ({ ...prev, recipient_phone: e.target.value }))}
+                        className="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 text-xs font-bold outline-none focus:ring-2 focus:ring-rose-500/20 transition-all font-mono text-[#1a1c2e]"
+                      />
+                    </div>
+
+                    {/* Recipient Address */}
+                    <div className="space-y-1 md:col-span-2">
+                      <label className="text-[9px] font-black text-gray-500 uppercase tracking-widest pl-2 block">৫. ডেলিভারি পুরো ঠিকানা (Full Address):</label>
+                      <textarea 
+                        required
+                        rows={2}
+                        value={bookingForm.recipient_address}
+                        onChange={(e) => setBookingForm(prev => ({ ...prev, recipient_address: e.target.value }))}
+                        className="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 text-xs font-bold outline-none focus:ring-2 focus:ring-rose-500/20 transition-all resize-none text-[#1a1c2e]"
+                      />
+                    </div>
+
+                    {/* Weight Key & Notes */}
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-black text-gray-500 uppercase tracking-widest pl-2 block">৬. ওজন কেজি (Weight in KG):</label>
+                      <input 
+                        type="number" 
+                        step="0.1"
+                        required
+                        value={bookingForm.weight}
+                        onChange={(e) => setBookingForm(prev => ({ ...prev, weight: Number(e.target.value) }))}
+                        className="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 text-xs font-bold outline-none focus:ring-2 focus:ring-rose-500/20 transition-all font-sans text-[#1a1c2e]"
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-black text-gray-500 uppercase tracking-widest pl-2 block">৭. বিশেষ নোট (Special Courier Note):</label>
+                      <input 
+                        type="text" 
+                        value={bookingForm.note}
+                        onChange={(e) => setBookingForm(prev => ({ ...prev, note: e.target.value }))}
+                        className="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 text-xs font-bold outline-none focus:ring-2 focus:ring-rose-500/20 transition-all text-[#1a1c2e]"
+                      />
+                    </div>
+
+                  </div>
+
+                  <div className="pt-4 flex gap-3">
+                    <button 
+                      type="button"
+                      onClick={() => setBookingOrder(null)}
+                      className="flex-1 py-3.5 bg-gray-150 hover:bg-gray-200 text-gray-700 rounded-2xl font-black text-xs uppercase tracking-widest transition-all cursor-pointer"
+                    >
+                      ক্যান্সেল
+                    </button>
+                    <button 
+                      type="submit"
+                      disabled={isBooking}
+                      className="flex-[2] py-3.5 bg-rose-600 hover:bg-rose-700 hover:shadow-lg disabled:opacity-55 text-white rounded-2xl font-black text-xs uppercase tracking-widest transition-all flex items-center justify-center gap-2 cursor-pointer"
+                    >
+                      {isBooking ? <RefreshCw className="animate-spin" size={14} /> : <Truck size={14} />}
+                      নিশ্চিত বুকিং করুন (Confirm Dispatch)
+                    </button>
+                  </div>
+                </form>
               </div>
             </motion.div>
           </div>

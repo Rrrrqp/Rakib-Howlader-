@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Settings, Upload, Image as ImageIcon, Check, RefreshCw, AlertCircle, Trash2, Bell, Volume2, Send, ShieldAlert, BadgeHelp } from 'lucide-react';
+import { Settings, Upload, Image as ImageIcon, Check, RefreshCw, AlertCircle, Trash2, Bell, Volume2, Send, ShieldAlert, BadgeHelp, Truck, Key, Lock, Building } from 'lucide-react';
 import { getBrandSettings, updateBrandSettings, getBrandLogoSettings, updateBrandLogoSettings } from '../services/settingsService';
 import { uploadImage } from '../services/productService';
 import { playNotificationSound, requestBrowserNotificationPermission, sendBrowserNotification } from '../services/notificationService';
@@ -51,11 +51,59 @@ export default function SettingsManager() {
     telegramChatId: '',
     soundEnabled: true,
     pushEnabled: true,
+    steadfastApiKey: '',
+    steadfastSecretKey: '',
+    steadfastMerchantId: '',
   });
   const [savingSettings, setSavingSettings] = useState(false);
   const [testingTelegram, setTestingTelegram] = useState(false);
   const [telegramTestStatus, setTelegramTestStatus] = useState<'success' | 'error' | null>(null);
   const [pushPermissionStatus, setPushPermissionStatus] = useState<string>('');
+
+  // Steadfast Test Connection state
+  const [testingSteadfast, setTestingSteadfast] = useState(false);
+  const [steadfastTestStatus, setSteadfastTestStatus] = useState<{ success: boolean; balance?: number; message?: string } | null>(null);
+
+  const handleTestSteadfast = async () => {
+    if (!settings.steadfastApiKey || !settings.steadfastSecretKey) {
+      alert("অনুগ্রহ করে কুরিয়ার সেটিংস টেস্ট করার জন্য API Key এবং Secret Key বসান।");
+      return;
+    }
+    setTestingSteadfast(true);
+    setSteadfastTestStatus(null);
+    try {
+      const response = await fetch("/api/steadfast/check-balance", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          apiKey: settings.steadfastApiKey.trim(),
+          secretKey: settings.steadfastSecretKey.trim()
+        })
+      });
+      const data = await response.json();
+      if (response.ok && data.success) {
+        setSteadfastTestStatus({
+          success: true,
+          balance: data.balance
+        });
+      } else {
+        setSteadfastTestStatus({
+          success: false,
+          message: data.message || "Connection failed. Please check your credentials."
+        });
+      }
+    } catch (err: any) {
+      console.error("Error testing SteadFast Connection:", err);
+      setSteadfastTestStatus({
+        success: false,
+        message: err.message || "Could not connect to the proxy service."
+      });
+    } finally {
+      setTestingSteadfast(false);
+    }
+  };
 
   useEffect(() => {
     async function loadSettings() {
@@ -277,8 +325,11 @@ export default function SettingsManager() {
         telegramChatId: settings.telegramChatId,
         soundEnabled: settings.soundEnabled,
         pushEnabled: settings.pushEnabled,
+        steadfastApiKey: settings.steadfastApiKey,
+        steadfastSecretKey: settings.steadfastSecretKey,
+        steadfastMerchantId: settings.steadfastMerchantId,
       });
-      setMessage({ type: 'success', text: 'অভিনন্দন! আপনার নোটিফিকেশন সেটিংস সফলভাবে সেভ করা হয়েছে।' });
+      setMessage({ type: 'success', text: 'অভিনন্দন! আপনার সব সেটিংস (কুরিয়ার ও নোটিফিকেশন) সফলভাবে সেভ করা হয়েছে।' });
     } catch (err) {
       console.error("Failed to save notifications settings:", err);
       setMessage({ type: 'error', text: 'সেটিংস সেভ করতে সমস্যা হয়েছে। আবার চেষ্টা করুন।' });
@@ -652,6 +703,126 @@ export default function SettingsManager() {
                     <li>টেলিগ্রামে <strong className="text-sky-800 font-bold">@userinfobot</strong> দিয়ে আপনার নিজস্ব <strong className="font-bold">Chat ID (আইডি নম্বর)</strong> কপি করুন।</li>
                     <li>আপনার তৈরি করা টেলিগ্রাম চ্যাট বটে গিয়ে অবশ্যই একবার <strong className="text-rose-600 font-bold">/start</strong> দিবেন।</li>
                     <li>উপরে টোকেন ও চ্যাট আইডি বসিয়ে দিয়ে <strong className="text-sky-600 font-bold">"ফোনে টেস্ট করুন"</strong> ক্লিক করুন। টেস্ট সফল হলে সেভ করুন!</li>
+                  </ol>
+                </div>
+
+              </div>
+
+              {/* SteadFast Courier Integration Card */}
+              <div className="bg-gradient-to-tr from-rose-50/40 via-white to-red-50/10 p-5 rounded-3xl border border-red-100 space-y-6">
+                
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2.5 bg-rose-600 text-white rounded-2xl shadow-md shadow-rose-600/10">
+                      <Truck size={18} />
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-black text-rose-900 uppercase tracking-wider">স্টেট ফাস্ট কুরিয়ার সার্ভিস সেটিংস (SteadFast Courier Connection)</h4>
+                      <p className="text-[10px] text-rose-600 font-bold">অর্ডারগুলোকে এক ক্লিকে সরাসরি স্টেট ফাস্ট কুরিয়ারে বুকিং করুন</p>
+                    </div>
+                  </div>
+                  
+                  <button
+                    type="button"
+                    disabled={testingSteadfast}
+                    onClick={handleTestSteadfast}
+                    className="flex items-center gap-2 px-3 py-2 bg-rose-600 hover:bg-rose-700 hover:shadow-lg disabled:opacity-50 text-white rounded-xl text-[9px] font-black uppercase tracking-widest transition-all shadow-md shrink-0 cursor-pointer border border-transparent"
+                  >
+                    {testingSteadfast ? <RefreshCw size={12} className="animate-spin" /> : <Truck size={12} />}
+                    টেস্ট কানেকশন
+                  </button>
+                </div>
+
+                {/* Steadfast connection test messages status */}
+                <AnimatePresence>
+                  {steadfastTestStatus && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      exit={{ opacity: 0, height: 0 }}
+                      className={`p-3.5 rounded-2xl text-[11px] font-bold flex items-center gap-2 border leading-relaxed ${
+                        steadfastTestStatus.success
+                          ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                          : 'bg-rose-50 text-rose-700 border-rose-200'
+                      }`}
+                    >
+                      {steadfastTestStatus.success ? (
+                        <>
+                          <Check size={16} />
+                          <span>স্টেট ফাস্ট এ সফলভাবে কানেক্ট হয়েছে! আপনার চলতি একাউন্ট ব্যালেন্স: <strong className="font-sans text-rose-600 bg-white px-2 py-0.5 rounded-lg border border-rose-100 ml-1">৳{steadfastTestStatus.balance}</strong></span>
+                        </>
+                      ) : (
+                        <>
+                          <AlertCircle size={16} />
+                          <span>কানেক্ট করা যায়নি। ত্রুটি: {steadfastTestStatus.message}</span>
+                        </>
+                      )}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                {/* Steadfast inputs form layout */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-5 pt-1">
+                  
+                  {/* API Key field */}
+                  <div className="space-y-1.5 col-span-1 md:col-span-1">
+                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest flex items-center gap-1.5">
+                      <Key size={12} className="text-gray-400" />
+                      ১. এপিআই কী (SteadFast API Key):
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="যেমন: sf_api_key_..."
+                      value={settings.steadfastApiKey || ''}
+                      onChange={(e) => setSettings(prev => ({ ...prev, steadfastApiKey: e.target.value }))}
+                      className="w-full px-4 py-3 bg-white text-gray-800 placeholder-gray-400 font-mono text-xs rounded-2xl border border-red-100 focus:border-red-400 focus:ring-1 focus:ring-red-400 outline-none transition-all shadow-inner"
+                    />
+                  </div>
+
+                  {/* Secret Key Input Field */}
+                  <div className="space-y-1.5 col-span-1 md:col-span-1">
+                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest flex items-center gap-1.5">
+                      <Lock size={12} className="text-gray-400" />
+                      ২. সিক্রেট কী (Secret Key / Token):
+                    </label>
+                    <input
+                      type="password"
+                      placeholder="যেমন: sf_secret_key_..."
+                      value={settings.steadfastSecretKey || ''}
+                      onChange={(e) => setSettings(prev => ({ ...prev, steadfastSecretKey: e.target.value }))}
+                      className="w-full px-4 py-3 bg-white text-gray-800 placeholder-gray-400 font-mono text-xs rounded-2xl border border-red-100 focus:border-red-400 focus:ring-1 focus:ring-red-400 outline-none transition-all shadow-inner"
+                    />
+                  </div>
+
+                  {/* Merchant ID Input Field */}
+                  <div className="space-y-1.5 col-span-1 md:col-span-1">
+                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest flex items-center gap-1.5">
+                      <Building size={12} className="text-gray-400" />
+                      ৩. মার্চেন্ট আইডি (Merchant ID):
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="যেমন: 12345"
+                      value={settings.steadfastMerchantId || ''}
+                      onChange={(e) => setSettings(prev => ({ ...prev, steadfastMerchantId: e.target.value }))}
+                      className="w-full px-4 py-3 bg-white text-gray-800 placeholder-gray-400 font-mono text-xs rounded-2xl border border-red-100 focus:border-red-400 focus:ring-1 focus:ring-red-400 outline-none transition-all shadow-inner"
+                    />
+                  </div>
+
+                </div>
+
+                {/* Detailed steps to get details from SteadFast Panel */}
+                <div className="bg-red-50 bg-opacity-40 p-4 rounded-2xl mt-4 space-y-2 border border-red-100/50">
+                  <div className="flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-widest text-[#be123c]">
+                    <BadgeHelp size={14} />
+                    স্টেট ফাস্ট কুরিয়ার কানেক্ট করার গাইড (SteadFast Setup Guide):
+                  </div>
+                  <ol className="text-gray-600 text-[11px] leading-relaxed list-decimal list-inside space-y-1.5 pl-1 font-sans">
+                    <li>প্রথমে আপনার <strong className="text-rose-800 font-bold">SteadFast Courier Merchant Panel</strong>-এ লগইন করুন।</li>
+                    <li>বাম পাশের মেনু থেকে <strong className="text-rose-800 font-bold">API Settings</strong> বা <strong className="text-rose-800 font-bold">Developer Options</strong> অপশনে যান।</li>
+                    <li>সেখান থেকে আপনার <strong className="font-bold text-rose-800">API Key</strong> এবং <strong className="font-bold text-rose-800">Secret Key / Token</strong> কপি করে এখানে বসান।</li>
+                    <li>আপনার প্যানেলের প্রোফাইল বা হোম পেইজ থেকে <strong className="font-bold text-rose-800">Merchant ID</strong> কপি করে ৩ নম্বর বক্সে বসান।</li>
+                    <li>উপরে ডান পাশে থাকা <strong className="text-emerald-750 font-bold">"টেস্ট কানেকশন"</strong> বাটনে ক্লিক করে কানেক্ট করুন। টেস্ট সফল হলে সেভ করুন!</li>
                   </ol>
                 </div>
 

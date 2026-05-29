@@ -24,6 +24,18 @@ export default function ProductManager() {
   const [useBase64, setUseBase64] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // States for delete confirmation and notifications
+  const [productToDelete, setProductToDelete] = useState<Product | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [notification, setNotification] = useState<{ type: 'success' | 'error' | 'warning' | 'info'; text: string } | null>(null);
+
+  const showNotification = (text: string, type: 'success' | 'error' | 'warning' | 'info' = 'success') => {
+    setNotification({ text, type });
+    setTimeout(() => {
+      setNotification(prev => prev?.text === text ? null : prev);
+    }, 4500);
+  };
+
   useEffect(() => {
     let unsubscribe: any;
     
@@ -163,12 +175,12 @@ export default function ProductManager() {
     if (!file) return;
 
     if (!file.type.startsWith('image/')) {
-      alert('সতর্কতা: শুধুমাত্র ছবি (Image) ফাইল আপলোড করা সম্ভব।');
+      showNotification('শুধুমাত্র ছবি (Image) ফাইল আপলোড করা সম্ভব।', 'warning');
       return;
     }
 
     if (file.size > 5 * 1024 * 1024) {
-      alert('সতর্কতা: ফাইলের সাইজ অনেক বড় (সর্বোচ্চ ৫ মেগাবাইট)।');
+      showNotification('ফাইলের সাইজ অনেক বড় (সর্বোচ্চ ৫ মেগাবাইট)।', 'warning');
       return;
     }
 
@@ -217,7 +229,7 @@ export default function ProductManager() {
       }
     } catch (error: any) {
       console.error("Upload failed details:", error);
-      alert("দুঃখিত! ছবি আপলোড করা সম্ভব হয়নি।");
+      showNotification("দুঃখিত! ছবি আপলোড করা সম্ভব হয়নি।", "error");
     } finally {
       setUploadingEntry(prev => ({ ...prev, [index]: false }));
       setUploadProgress(prev => ({ ...prev, [index]: 0 }));
@@ -230,7 +242,7 @@ export default function ProductManager() {
     // Validation
     const invalidEntries = formEntries.filter(entry => !entry.imageUrl || !entry.title || !entry.price);
     if (invalidEntries.length > 0) {
-      alert("অসম্পূর্ণ তথ্য: সকল প্রোডাক্টের ছবি, নাম এবং মূল্য অবশ্যই দিতে হবে।");
+      showNotification("অসম্পূর্ণ তথ্য: সকল প্রোডাক্টের ছবি, নাম এবং মূল্য অবশ্যই দিতে হবে।", "warning");
       return;
     }
 
@@ -247,19 +259,32 @@ export default function ProductManager() {
       }
       setIsModalOpen(false);
       await fetchProducts();
-      alert(`সফল: ${formEntries.length} টি প্রোডাক্ট ক্যাটালগে যোগ করা হয়েছে।`);
+      showNotification(`সফল: ${formEntries.length} টি প্রোডাক্ট ক্যাটালগে সেভ করা হয়েছে।`, "success");
     } catch (error: any) {
       console.error("Failed to save products:", error);
-      alert(`প্রোডাক্ট সেভ করতে সমস্যা হয়েছে: ${error.message}`);
+      showNotification(`প্রোডাক্ট সেভ করতে সমস্যা হয়েছে: ${error.message}`, "error");
     } finally {
       setSubmitting(false);
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (window.confirm('Are you sure you want to delete this product?')) {
-      await deleteProduct(id);
-      fetchProducts();
+  const handleDelete = (product: Product) => {
+    setProductToDelete(product);
+  };
+
+  const confirmDelete = async () => {
+    if (!productToDelete?.id) return;
+    setDeleting(true);
+    try {
+      await deleteProduct(productToDelete.id);
+      showNotification(`${productToDelete.title} সফলভাবে ক্যাটালগ থেকে ডিলিট করা হয়েছে।`, 'success');
+      setProductToDelete(null);
+      await fetchProducts();
+    } catch (error: any) {
+      console.error("Failed to delete product:", error);
+      showNotification(`প্রোডাক্ট ডিলিট করতে সমস্যা হয়েছে: ${error.message || error}`, 'error');
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -339,7 +364,7 @@ export default function ProductManager() {
                     <Edit size={18} />
                   </button>
                   <button 
-                    onClick={() => product.id && handleDelete(product.id)}
+                    onClick={() => handleDelete(product)}
                     className="p-2 bg-white/90 text-gray-400 rounded-xl backdrop-blur-md hover:bg-rose-600 hover:text-white transition-all shadow-lg"
                   >
                     <Trash2 size={18} />
@@ -733,7 +758,94 @@ export default function ProductManager() {
         )}
       </AnimatePresence>
 
-      {/* Toast Notification would be nice here, but keeping it simple */}
+      {/* Custom Delete Confirmation Modal */}
+      <AnimatePresence>
+        {productToDelete && (
+          <div className="fixed inset-0 z-[250] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => !deleting && setProductToDelete(null)}
+              className="absolute inset-0 bg-[#0f111a]/75 backdrop-blur-md"
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95, y: 30 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 30 }}
+              className="bg-white w-full max-w-sm rounded-[2.5rem] shadow-2xl relative z-10 overflow-hidden border border-rose-50 p-8 text-center"
+            >
+              <button 
+                disabled={deleting}
+                onClick={() => setProductToDelete(null)}
+                className="absolute top-6 right-6 p-2 bg-gray-50 text-gray-400 hover:text-rose-500 rounded-xl transition-all cursor-pointer disabled:opacity-50 animate-fade"
+              >
+                <X size={20} />
+              </button>
+
+              <div className="mx-auto w-16 h-16 bg-rose-50 text-rose-600 rounded-full flex items-center justify-center mb-6 shadow-sm">
+                <Trash2 size={24} className="animate-pulse text-rose-500" />
+              </div>
+
+              <h3 className="text-lg font-black text-[#1a1c2e] mb-2 font-sans">প্রোডাক্টটি ডিলিট করতে চান?</h3>
+              <p className="text-[11px] text-gray-500 font-semibold mb-6 uppercase tracking-wide">
+                আপনি কি নিশ্চিত যে ক্যাটালগ থেকে <span className="text-rose-600 font-extrabold">"{productToDelete.title}"</span> প্রোডাক্টটি চিরতরে ডিলিট করতে চান?
+              </p>
+
+              {productToDelete.imageUrl && (
+                <div className="w-24 h-24 mx-auto rounded-2xl overflow-hidden border border-gray-150 mb-6 bg-gray-50 flex items-center justify-center">
+                  <img src={productToDelete.imageUrl} referrerPolicy="no-referrer" alt="ToDelete" className="w-full h-full object-cover" />
+                </div>
+              )}
+
+              <div className="flex gap-4">
+                <button 
+                  type="button"
+                  disabled={deleting}
+                  onClick={() => setProductToDelete(null)}
+                  className="flex-1 py-3 bg-gray-100 text-gray-600 hover:bg-gray-200 rounded-xl font-bold text-xs uppercase tracking-wider transition-all cursor-pointer disabled:opacity-50"
+                >
+                  ক্যান্সেল
+                </button>
+                <button 
+                  type="button"
+                  disabled={deleting}
+                  onClick={confirmDelete}
+                  className="flex-[2] py-3 bg-rose-600 text-white hover:bg-rose-700 rounded-xl font-bold text-xs uppercase tracking-wider transition-all shadow-lg shadow-rose-900/10 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                >
+                  {deleting ? <Loader2 className="animate-spin" size={14} /> : <Trash2 size={14} />}
+                  নিশ্চিত ডিলিট
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Sleek Auto-Dismiss Notification Toast */}
+      <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[300] w-full max-w-sm px-4 pointer-events-none">
+        <AnimatePresence>
+          {notification && (
+            <motion.div
+              initial={{ opacity: 0, y: -20, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -10, scale: 0.9 }}
+              className={`p-4 rounded-2xl shadow-xl flex items-center gap-3 pointer-events-auto border text-xs font-bold leading-relaxed ${
+                notification.type === 'success' ? 'bg-[#f0fdf4] border-emerald-100 text-emerald-800' :
+                notification.type === 'error' ? 'bg-[#fef2f2] border-rose-100 text-rose-800' :
+                notification.type === 'warning' ? 'bg-[#fffbeb] border-amber-100 text-amber-800' :
+                'bg-blue-50 border-blue-100 text-blue-800'
+              }`}
+            >
+              {notification.type === 'success' ? <ShieldCheck className="text-emerald-500 shrink-0" size={18} /> : <AlertCircle className="text-rose-500 shrink-0" size={18} />}
+              <span className="flex-1 text-left">{notification.text}</span>
+              <button onClick={() => setNotification(null)} className="p-1 hover:bg-black/5 rounded-lg transition-colors ml-auto text-gray-500">
+                <X size={14} />
+              </button>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
     </div>
   );
 }
