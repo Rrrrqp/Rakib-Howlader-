@@ -17,10 +17,11 @@ import { CashMemoModal } from './CashMemoModal';
 import ProductManager from './ProductManager';
 import SettingsManager from './SettingsManager';
 import LiveVisitorTracker from './LiveVisitorTracker';
-import { Activity } from 'lucide-react';
+import ReviewManager from './ReviewManager';
+import { Activity, MessageSquare } from 'lucide-react';
 
 export default function AdminDashboard() {
-  const [activeTab, setActiveTab] = useState<'orders' | 'products' | 'settings' | 'live_visitors'>('orders');
+  const [activeTab, setActiveTab] = useState<'orders' | 'products' | 'settings' | 'live_visitors' | 'reviews'>('orders');
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -218,6 +219,13 @@ export default function AdminDashboard() {
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
               </span>
             </button>
+            <button 
+              onClick={() => setActiveTab('reviews')}
+              className={`flex items-center gap-2 px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'reviews' ? 'bg-rose-600 text-white shadow-lg' : 'text-gray-400 hover:text-white'}`}
+            >
+              <MessageSquare size={14} />
+              Reviews
+            </button>
           </div>
 
           <div className="hidden md:flex items-center gap-2">
@@ -255,6 +263,8 @@ export default function AdminDashboard() {
           <SettingsManager />
         ) : activeTab === 'live_visitors' ? (
           <LiveVisitorTracker />
+        ) : activeTab === 'reviews' ? (
+          <ReviewManager />
         ) : (
           <>
             {/* Marketing Analysis Section */}

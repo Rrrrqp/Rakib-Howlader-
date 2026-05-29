@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { getAllProducts } from '../services/productService';
+import { getAllOrders } from '../services/orderService';
+import { getReviewsForProduct, createReview, getProductSalesCount, ProductReview } from '../services/reviewService';
 import { Product } from '../types';
-import { ShoppingBag, Eye, ShoppingCart, Loader2, Sparkles, X, Star, Share2, Info, Hash, ArrowDown, ArrowUp, Flame, SlidersHorizontal, Gift, Trophy } from 'lucide-react';
+import { ShoppingBag, Eye, ShoppingCart, Loader2, Sparkles, X, Star, Share2, Info, Hash, ArrowDown, ArrowUp, Flame, SlidersHorizontal, Gift, Trophy, MessageSquare, Send, CheckCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 interface ProductShowcaseProps {
@@ -11,6 +13,7 @@ interface ProductShowcaseProps {
 
 export default function ProductShowcase({ onOrderNow, onAddToCart }: ProductShowcaseProps) {
   const [products, setProducts] = useState<Product[]>([]);
+  const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [activeCategory, setActiveCategory] = useState<string>('ALL');
@@ -19,6 +22,15 @@ export default function ProductShowcase({ onOrderNow, onAddToCart }: ProductShow
   const [quantity, setQuantity] = useState(1);
   const [selectedSize, setSelectedSize] = useState('38');
   const sizes = ['34', '36', '38', '40', '42', '44', '46', '48'];
+
+  // Reviews states
+  const [reviews, setReviews] = useState<ProductReview[]>([]);
+  const [reviewsLoading, setReviewsLoading] = useState(false);
+  const [newReviewName, setNewReviewName] = useState('');
+  const [newReviewRating, setNewReviewRating] = useState(5);
+  const [newReviewComment, setNewReviewComment] = useState('');
+  const [isSubmittingReview, setIsSubmittingReview] = useState(false);
+  const [reviewSuccessMessage, setReviewSuccessMessage] = useState('');
 
   const categories = [
     { id: 'ALL', name: 'সবগুলো (All)' },
@@ -31,6 +43,12 @@ export default function ProductShowcase({ onOrderNow, onAddToCart }: ProductShow
     const fetch = async () => {
       const data = await getAllProducts(true);
       setProducts(data);
+      try {
+        const orderData = await getAllOrders();
+        setOrders(orderData);
+      } catch (e) {
+        console.warn("Could not load orders for sales counter", e);
+      }
       setLoading(false);
     };
     fetch();
@@ -40,8 +58,56 @@ export default function ProductShowcase({ onOrderNow, onAddToCart }: ProductShow
     if (selectedProduct) {
       setQuantity(1);
       setSelectedSize('38');
+      setReviewSuccessMessage('');
+      
+      // Fetch reviews
+      setReviewsLoading(true);
+      getReviewsForProduct(selectedProduct.id || '', selectedProduct.productCode)
+        .then(data => {
+          setReviews(data);
+          setReviewsLoading(false);
+        })
+        .catch(err => {
+          console.error("Failed to load reviews", err);
+          setReviewsLoading(false);
+        });
+    } else {
+      setReviews([]);
     }
   }, [selectedProduct]);
+
+  const handleAddReview = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedProduct || !newReviewName.trim() || !newReviewComment.trim()) return;
+
+    setIsSubmittingReview(true);
+    try {
+      const added = await createReview(
+        selectedProduct.id || '',
+        newReviewName,
+        newReviewRating,
+        newReviewComment
+      );
+      
+      setReviews(prev => [added, ...prev]);
+      setNewReviewName('');
+      setNewReviewComment('');
+      setNewReviewRating(5);
+      setReviewSuccessMessage('ধন্যবাদ! আপনার কাস্টমার রিভিউটি সফলভাবে প্রকাশিত হয়েছে। 🎉');
+      
+      setTimeout(() => setReviewSuccessMessage(''), 4000);
+    } catch (err) {
+      console.error("Error adding review", err);
+    } finally {
+      setIsSubmittingReview(false);
+    }
+  };
+
+  const averageRating = useMemo(() => {
+    if (reviews.length === 0) return 5.0;
+    const sum = reviews.reduce((acc, r) => acc + r.rating, 0);
+    return parseFloat((sum / reviews.length).toFixed(1));
+  }, [reviews]);
 
   const handleOrder = () => {
     if (selectedProduct) {
@@ -273,6 +339,15 @@ export default function ProductShowcase({ onOrderNow, onAddToCart }: ProductShow
                   )}
                 </div>
 
+                {/* Customer Purchase Count Social Proof */}
+                <div className="inline-flex items-center justify-center gap-1.5 bg-emerald-50/70 border border-emerald-100 px-3 py-1.5 rounded-2xl text-[9.5px] md:text-[11px] text-emerald-800 font-bold tracking-normal select-none shadow-sm mx-auto w-fit">
+                  <span className="relative flex h-1.5 w-1.5 shrink-0">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
+                  </span>
+                  <span><b className="font-extrabold text-emerald-600">{getProductSalesCount(product.productCode, orders, product.initialSalesCount)} জন</b> ইতিমধ্যে কিনেছেন</span>
+                </div>
+
                 {/* Micro campaign discount tip */}
                 <div className="bg-rose-50/70 border border-rose-100 rounded-xl p-2 flex items-center justify-center gap-1.5 text-[#e11d48] text-[9px] md:text-[10px] font-black tracking-normal select-none">
                   <Gift size={11} className="animate-bounce text-rose-500 shrink-0" />
@@ -357,12 +432,20 @@ export default function ProductShowcase({ onOrderNow, onAddToCart }: ProductShow
                   )}
                 </div>
 
-                <div className="flex items-center gap-4">
-                   <div className="flex items-center gap-0.5 text-gray-300">
-                    {[...Array(5)].map((_, i) => <Star key={i} size={14} fill={i === 4 ? "#e5e7eb" : "#fbbf24"} className={i === 4 ? "" : "text-amber-400"} />)}
+                <div className="flex items-center gap-4 bg-[#fbfbfa] p-2.5 px-3.5 border border-gray-150 rounded-2xl w-fit">
+                   <div className="flex items-center gap-0.5">
+                    {[...Array(5)].map((_, i) => (
+                      <Star 
+                        key={i} 
+                        size={13} 
+                        fill={i < Math.round(averageRating) ? "#fbbf24" : "none"} 
+                        className={i < Math.round(averageRating) ? "text-amber-400" : "text-gray-300"} 
+                      />
+                    ))}
                   </div>
-                  <span className="text-xs font-bold text-gray-400 tracking-tight">0.00/5</span>
-                  <button className="text-xs font-bold text-blue-600 hover:underline">See Reviews</button>
+                  <span className="text-xs font-black text-[#1a1c2e] tracking-tight">{averageRating}/5</span>
+                  <span className="text-xs text-gray-400">|</span>
+                  <span className="text-[10px] font-black text-brand-gold uppercase tracking-widest">{reviews.length} টি কাস্টমার রিভিউ</span>
                 </div>
 
                 <div className="inline-block px-4 py-1.5 bg-[#438a1a] text-white rounded-r-full text-[11px] font-black tracking-tight -ml-8 pl-8 relative shadow-lg">
@@ -433,6 +516,168 @@ export default function ProductShowcase({ onOrderNow, onAddToCart }: ProductShow
                     >
                       অর্ডার করুন
                     </button>
+                  </div>
+                </div>
+
+                {/* Brand New Professional Customer Reviews & Live Form Segment */}
+                <div className="border-t border-gray-150 pt-6 space-y-6">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-sm font-black uppercase tracking-widest text-[#161824] flex items-center gap-2">
+                      <MessageSquare size={16} className="text-brand-gold" />
+                      কাস্টমার রিভিউ ({reviews.length})
+                    </h3>
+                    <div className="text-xs font-black text-[#438a1a] bg-green-50 px-2.5 py-1 rounded-full border border-green-100">
+                      ★ {averageRating} গড় রেটিং
+                    </div>
+                  </div>
+
+                  {/* Real-time statistics badge */}
+                  <div className="bg-emerald-50 border border-emerald-100 text-emerald-800 p-4 rounded-3xl flex items-center gap-3 shadow-sm select-none">
+                    <div className="p-2.5 bg-[#438a1a] text-white rounded-2xl shadow-md">
+                      <ShoppingBag size={16} className="animate-bounce" />
+                    </div>
+                    <div>
+                      <p className="text-[9px] uppercase font-black tracking-widest text-emerald-600">হট সেলিং প্রোডাক্ট</p>
+                      <p className="text-xs font-bold mt-0.5 leading-snug">
+                        এই ড্রেসটি ইতিমধ্যে <span className="text-red-500 font-extrabold text-sm">{getProductSalesCount(selectedProduct.productCode, orders, selectedProduct.initialSalesCount)} জন</span> কাস্টমার সফলভাবে ক্রয় করেছেন!
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Success Alert Banner for Review submission */}
+                  <AnimatePresence>
+                    {reviewSuccessMessage && (
+                      <motion.div 
+                        initial={{ opacity: 0, y: -10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -10 }}
+                        className="bg-emerald-50 border border-emerald-200 text-emerald-800 p-4 rounded-2xl text-xs font-medium flex items-center gap-2"
+                      >
+                        <CheckCircle size={16} className="text-[#438a1a] shrink-0 animate-bounce" />
+                        <span>{reviewSuccessMessage}</span>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+
+                  {/* Write a Review Block */}
+                  <form onSubmit={handleAddReview} className="bg-[#fbfbfa] p-5 rounded-3xl border border-gray-150 space-y-4">
+                    <div className="space-y-1">
+                      <h4 className="text-[11px] font-black uppercase tracking-widest text-[#1a1c2e]">আপনার মূল্যবান রিভিউ লিখুন</h4>
+                      <p className="text-gray-400 text-[10px] font-medium">ড্রেসের মান এবং আমাদের সার্ভিস কেমন লেগেছে তা অন্য কাস্টমারদের জানান</p>
+                    </div>
+
+                    <div className="space-y-3">
+                      {/* Rating Selection */}
+                      <div className="flex items-center gap-2">
+                        <span className="text-[11px] font-black text-gray-500">আপনার রেটিং:</span>
+                        <div className="flex items-center gap-1.5">
+                          {[1, 2, 3, 4, 5].map((stars) => (
+                            <button
+                              key={stars}
+                              type="button"
+                              onClick={() => setNewReviewRating(stars)}
+                              className="p-1 hover:scale-125 transition-transform"
+                            >
+                              <Star
+                                size={18}
+                                fill={stars <= newReviewRating ? "#fbbf24" : "none"}
+                                className={stars <= newReviewRating ? "text-amber-400" : "text-gray-300"}
+                              />
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Customer Name input */}
+                      <input
+                        type="text"
+                        required
+                        value={newReviewName}
+                        onChange={(e) => setNewReviewName(e.target.value)}
+                        placeholder="আপনার নাম লিখুন (যেমন: তাসনিম রেজা)"
+                        className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-[#438a1a] focus:outline-none focus:border-transparent transition-all"
+                      />
+
+                      {/* Comment body */}
+                      <textarea
+                        required
+                        rows={3}
+                        value={newReviewComment}
+                        onChange={(e) => setNewReviewComment(e.target.value)}
+                        placeholder="আপনার মতামত বিস্তারিত লিখুন (কাপড়, কালার এবং প্যাকেজিং কেমন লেগেছে?)"
+                        className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-[#438a1a] focus:outline-none focus:border-transparent transition-all resize-none"
+                      />
+
+                      <button
+                        type="submit"
+                        disabled={isSubmittingReview}
+                        className="w-full py-3 bg-brand-charcoal text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-black transition-all flex items-center justify-center gap-1.5 shadow-md active:scale-95 disabled:opacity-50 font-black"
+                      >
+                        {isSubmittingReview ? (
+                          <Loader2 size={12} className="animate-spin" />
+                        ) : (
+                          <Send size={11} />
+                        )}
+                        রিভিউ সাবমিট করুন
+                      </button>
+                    </div>
+                  </form>
+
+                  {/* Review list */}
+                  <div className="space-y-3 max-h-80 overflow-y-auto no-scrollbar pr-1">
+                    {reviewsLoading ? (
+                      <div className="flex items-center justify-center py-8 gap-2 text-gray-400 text-xs font-bold">
+                        <Loader2 size={14} className="animate-spin text-brand-gold" />
+                        রিভিউ লোড হচ্ছে...
+                      </div>
+                    ) : reviews.length === 0 ? (
+                      <div className="text-center py-6 text-xs font-medium text-gray-400">
+                        এখনো কোনো কাস্টমার রিভিউ দেয়া হয়নি। প্রথম রিভিউটি আপনি দিন!
+                      </div>
+                    ) : (
+                      reviews.map((rev) => (
+                        <div 
+                          key={rev.id || Math.random().toString()} 
+                          className="p-4 bg-white border border-gray-100 rounded-2xl space-y-2 shadow-sm transition-all hover:border-gray-200"
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-2">
+                              <div className="w-7 h-7 rounded-full bg-brand-gold/10 text-brand-gold flex items-center justify-center text-[10px] font-black uppercase">
+                                {rev.customerName.charAt(0)}
+                              </div>
+                              <div>
+                                <h5 className="text-[11.5px] font-black text-gray-800 flex items-center gap-1">
+                                  {rev.customerName}
+                                  <span className="text-[8px] bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 px-1 py-0.2 rounded font-black uppercase tracking-widest leading-none scale-90">Verified Buyer</span>
+                                </h5>
+                                <span className="text-[9px] text-gray-400 font-medium">
+                                  {new Date(rev.createdAt).toLocaleDateString('bn-BD', {
+                                    year: 'numeric',
+                                    month: 'long',
+                                    day: 'numeric'
+                                  })}
+                                </span>
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-0.5">
+                              {[...Array(5)].map((_, i) => (
+                                <Star 
+                                  key={i} 
+                                  size={10} 
+                                  fill={i < rev.rating ? "#fbbf24" : "none"} 
+                                  className={i < rev.rating ? "text-amber-400" : "text-gray-200"} 
+                                />
+                              ))}
+                            </div>
+                          </div>
+
+                          <p className="text-xs font-medium text-gray-600 leading-relaxed bg-gray-50/50 p-2 rounded-xl border border-gray-100">
+                            {rev.comment}
+                          </p>
+                        </div>
+                      ))
+                    )}
                   </div>
                 </div>
               </div>

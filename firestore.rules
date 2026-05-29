@@ -18,6 +18,13 @@ service cloud.firestore {
              data.status in ['Pending', 'Confirmed', 'Processing', 'Delivered', 'Cancelled'];
     }
 
+    function isValidReview(data) {
+      return data.productId is string && data.productId.size() <= 128 &&
+             data.customerName is string && data.customerName.size() <= 200 &&
+             data.rating is number &&
+             data.comment is string && data.comment.size() <= 2000;
+    }
+
     match /products/{productId} {
       allow read: if true;
       allow write: if true; // For demo/initial setup. Ideally restricted to Admin.
@@ -26,6 +33,10 @@ service cloud.firestore {
     match /settings/{settingId} {
       allow read: if true;
       allow write: if true;
+    }
+
+    match /reviews/{reviewId} {
+      allow read, write: if true;
     }
 
     match /orders/{orderId} {

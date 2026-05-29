@@ -71,6 +71,19 @@
         "lastActiveAt": { "type": "string", "format": "date-time" }
       },
       "required": ["sessionId", "createdAt", "lastActiveAt"]
+    },
+    "ProductReview": {
+      "title": "ProductReview",
+      "description": "A customized product review submitted by customers or curated by the admin.",
+      "type": "object",
+      "properties": {
+        "productId": { "type": "string" },
+        "customerName": { "type": "string" },
+        "rating": { "type": "number" },
+        "comment": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["productId", "customerName", "rating", "comment", "createdAt"]
     }
   },
   "firestore": {
@@ -89,6 +102,10 @@
     "/visitor_sessions/{sessionId}": {
       "schema": "VisitorSession",
       "description": "Collection of visitor active sessions for live tracking"
+    },
+    "/reviews/{reviewId}": {
+      "schema": "ProductReview",
+      "description": "Collection of professional customized customer reviews"
     }
   }
 }

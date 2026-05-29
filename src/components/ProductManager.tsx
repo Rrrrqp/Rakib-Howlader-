@@ -77,7 +77,8 @@ export default function ProductManager() {
     productCode: '',
     stock: 0,
     discount: 0,
-    isActive: true
+    isActive: true,
+    initialSalesCount: 0
   }]);
 
   const addFormEntry = () => {
@@ -91,7 +92,8 @@ export default function ProductManager() {
       productCode: '',
       stock: 50,
       discount: 0,
-      isActive: true
+      isActive: true,
+      initialSalesCount: 0
     }]);
     
     // Smooth scroll to bottom after adding
@@ -130,7 +132,10 @@ export default function ProductManager() {
   const handleOpenModal = (product?: Product) => {
     if (product) {
       setEditingProduct(product);
-      setFormEntries([product]);
+      setFormEntries([{
+        ...product,
+        initialSalesCount: product.initialSalesCount ?? 0
+      }]);
     } else {
       setEditingProduct(null);
       setFormEntries([{
@@ -143,7 +148,8 @@ export default function ProductManager() {
         productCode: '',
         stock: 50,
         discount: 0,
-        isActive: true
+        isActive: true,
+        initialSalesCount: 0
       }]);
     }
     setIsModalOpen(true);
@@ -648,6 +654,30 @@ export default function ProductManager() {
                           onChange={(e) => updateFormEntry(index, { description: e.target.value })}
                           className="w-full px-6 py-4 rounded-2xl bg-gray-50 border border-gray-100 focus:ring-2 focus:ring-rose-500/20 outline-none transition-all text-sm font-medium"
                         />
+                      </div>
+
+                      {/* Social Proof & Live Sales Customization segment */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 col-span-2 bg-[#f9fafb] p-6 rounded-[2rem] border border-gray-100">
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-1.5">
+                            <Plus size={12} className="text-rose-500 font-extrabold" />
+                            ইনিশিয়াল সেলস কাউন্ট (Baseline Orders)
+                          </label>
+                          <input 
+                            type="number"
+                            placeholder="যেমন: ৫০"
+                            value={entry.initialSalesCount ?? 0}
+                            onChange={(e) => updateFormEntry(index, { initialSalesCount: Number(e.target.value) })}
+                            className="w-full px-4 py-3.5 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-rose-500/20 outline-none transition-all text-sm font-bold tabular-nums"
+                          />
+                          <p className="text-[9.5px] text-gray-400 font-medium">এটি কাস্টমারদের দেখানোর জন্য প্রাথমিক সেলস বেসলাইন। এর সাথে রিয়েল-টাইম কাস্টমার লাইভ অর্ডারসমূহ স্বয়ংক্রিয়ভাবে যোগ হবে।</p>
+                        </div>
+                        <div className="space-y-1 justify-center flex flex-col pl-2 border-l border-gray-200 md:pl-4">
+                          <span className="text-[10.5px] font-black text-brand-charcoal uppercase tracking-widest">সরাসরি ডেটাবেজ সংযোগ</span>
+                          <p className="text-[11px] text-gray-500 leading-normal font-medium">
+                            কাস্টমার কোনো অর্ডার প্লেস করলেই তা সরাসরি অ্যাডমিন প্যানেল এবং কাস্টমার ইন্টারফেসে সেকেন্ডের মধ্যে লাইভ কাউন্ট আপডেট করবে। ১০০% নিখুঁত রিয়েল-টাইম ডাটা ইন্টিগ্রেশন।
+                          </p>
+                        </div>
                       </div>
 
                       {/* Visibility */}

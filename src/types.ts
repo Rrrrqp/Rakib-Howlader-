@@ -60,6 +60,7 @@ export interface Product {
   discount?: number;
   isActive: boolean;
   createdAt: string;
+  initialSalesCount?: number;
 }
 
 export interface BrandSettings {
