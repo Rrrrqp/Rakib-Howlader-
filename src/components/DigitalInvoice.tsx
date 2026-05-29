@@ -9,7 +9,20 @@ interface DigitalInvoiceProps {
 }
 
 export const DigitalInvoice = React.forwardRef<HTMLDivElement, DigitalInvoiceProps>(({ order }, ref) => {
-  const [logoUrl, setLogoUrl] = useState<string>(brandLogo);
+  const [logoUrl, setLogoUrl] = useState<string>(() => {
+    try {
+      const cached = localStorage.getItem('brand_settings');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (parsed && parsed.logoUrl) {
+          return parsed.logoUrl;
+        }
+      }
+    } catch (e) {
+      console.warn("Failed to load cached brand logo for invoice:", e);
+    }
+    return brandLogo;
+  });
 
   useEffect(() => {
     async function loadLogo() {

@@ -39,7 +39,20 @@ export default function App() {
   const [authError, setAuthError] = useState(false);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [showCart, setShowCart] = useState(false);
-  const [logoUrl, setLogoUrl] = useState<string>(brandLogo);
+  const [logoUrl, setLogoUrl] = useState<string>(() => {
+    try {
+      const cached = localStorage.getItem('brand_settings');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (parsed && parsed.logoUrl) {
+          return parsed.logoUrl;
+        }
+      }
+    } catch (e) {
+      console.warn("Failed to load cached brand logo:", e);
+    }
+    return brandLogo;
+  });
   const [checkoutMode, setCheckoutMode] = useState(false);
   const [showAddSuccess, setShowAddSuccess] = useState(false);
 

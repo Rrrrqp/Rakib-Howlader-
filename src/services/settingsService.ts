@@ -5,24 +5,43 @@ import { BrandSettings } from '../types';
 const SETTING_DOC_ID = 'brand';
 
 export const getBrandSettings = async (): Promise<BrandSettings | null> => {
+  let cachedData: BrandSettings | null = null;
   try {
-    const { db } = await initializeFirebase();
-    if (!db) {
-      const local = localStorage.getItem('brand_settings');
-      return local ? JSON.parse(local) : null;
+    const local = localStorage.getItem('brand_settings');
+    if (local) {
+      cachedData = JSON.parse(local);
     }
-    const docRef = doc(db, 'settings', SETTING_DOC_ID);
-    const docSnap = await getDoc(docRef);
-    if (docSnap.exists()) {
-      const data = docSnap.data() as BrandSettings;
-      localStorage.setItem('brand_settings', JSON.stringify(data));
-      return data;
-    }
-  } catch (error) {
-    console.warn('Error fetching brand settings from firestore:', error);
+  } catch (e) {
+    console.warn('Error parsing brand cache:', e);
   }
-  const local = localStorage.getItem('brand_settings');
-  return local ? JSON.parse(local) : null;
+
+  // Non-blocking background fetch to sync the cache
+  const fetchPromise = (async () => {
+    try {
+      const { db } = await initializeFirebase();
+      if (db) {
+        const docRef = doc(db, 'settings', SETTING_DOC_ID);
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+          const data = docSnap.data() as BrandSettings;
+          localStorage.setItem('brand_settings', JSON.stringify(data));
+          return data;
+        }
+      }
+    } catch (error) {
+      console.warn('Error fetching brand settings in background:', error);
+    }
+    return null;
+  })();
+
+  // If we have cached settings, return them immediately for instant loading
+  if (cachedData) {
+    return cachedData;
+  }
+
+  // Otherwise wait for the live fetching
+  const liveData = await fetchPromise;
+  return liveData || cachedData;
 };
 
 export const updateBrandSettings = async (settings: Partial<BrandSettings>): Promise<void> => {

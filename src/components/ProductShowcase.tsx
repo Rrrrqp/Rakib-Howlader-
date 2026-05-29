@@ -3,7 +3,7 @@ import { getAllProducts } from '../services/productService';
 import { getAllOrders } from '../services/orderService';
 import { getReviewsForProduct, createReview, getProductSalesCount, ProductReview } from '../services/reviewService';
 import { Product } from '../types';
-import { ShoppingBag, Eye, ShoppingCart, Loader2, Sparkles, X, Star, Share2, Info, Hash, ArrowDown, ArrowUp, Flame, SlidersHorizontal, Gift, Trophy, MessageSquare, Send, CheckCircle } from 'lucide-react';
+import { ShoppingBag, Eye, ShoppingCart, Loader2, Sparkles, X, Star, Share2, Info, Hash, ArrowDown, ArrowUp, Flame, SlidersHorizontal, Gift, Trophy, MessageSquare, Send, CheckCircle, ZoomIn, ZoomOut, Maximize2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 interface ProductShowcaseProps {
@@ -12,9 +12,31 @@ interface ProductShowcaseProps {
 }
 
 export default function ProductShowcase({ onOrderNow, onAddToCart }: ProductShowcaseProps) {
-  const [products, setProducts] = useState<Product[]>([]);
-  const [orders, setOrders] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [products, setProducts] = useState<Product[]>(() => {
+    try {
+      const cached = localStorage.getItem('cached_products_active');
+      return cached ? JSON.parse(cached) : [];
+    } catch (e) {
+      return [];
+    }
+  });
+  const [orders, setOrders] = useState<any[]>(() => {
+    try {
+      const cached = localStorage.getItem('cached_orders');
+      return cached ? JSON.parse(cached) : [];
+    } catch (e) {
+      return [];
+    }
+  });
+  const [loading, setLoading] = useState(() => {
+    try {
+      const cached = localStorage.getItem('cached_products_active');
+      const parsed = cached ? JSON.parse(cached) : [];
+      return parsed.length === 0;
+    } catch (e) {
+      return true;
+    }
+  });
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [activeCategory, setActiveCategory] = useState<string>('ALL');
   const [sortBy, setSortBy] = useState<'default' | 'price-desc' | 'price-asc' | 'top-selling'>('default');
@@ -32,6 +54,19 @@ export default function ProductShowcase({ onOrderNow, onAddToCart }: ProductShow
   const [isSubmittingReview, setIsSubmittingReview] = useState(false);
   const [reviewSuccessMessage, setReviewSuccessMessage] = useState('');
 
+  // Zooming & Lightbox States
+  const [zoomPos, setZoomPos] = useState({ x: 0, y: 0 });
+  const [isZoomed, setIsZoomed] = useState(false);
+  const [isLightboxOpen, setIsLightboxOpen] = useState(false);
+  const [lightboxScale, setLightboxScale] = useState(1);
+
+  const handleZoomMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    const { left, top, width, height } = e.currentTarget.getBoundingClientRect();
+    const x = ((e.clientX - left) / width) * 100;
+    const y = ((e.clientY - top) / height) * 100;
+    setZoomPos({ x, y });
+  };
+
   const categories = [
     { id: 'ALL', name: 'সবগুলো (All)' },
     { id: 'THREE PIECE', name: 'থ্রি-পিস (Three Piece)' },
@@ -46,6 +81,7 @@ export default function ProductShowcase({ onOrderNow, onAddToCart }: ProductShow
       try {
         const orderData = await getAllOrders();
         setOrders(orderData);
+        localStorage.setItem('cached_orders', JSON.stringify(orderData));
       } catch (e) {
         console.warn("Could not load orders for sales counter", e);
       }
@@ -395,12 +431,34 @@ export default function ProductShowcase({ onOrderNow, onAddToCart }: ProductShow
 
               {/* Left: Image & Thumbnails */}
               <div className="w-full md:w-[45%] flex flex-col p-4 md:p-6 bg-white overflow-y-auto">
-                <div className="relative aspect-[4/5] rounded-xl overflow-hidden border border-gray-100">
+                <div 
+                  className="relative aspect-[4/5] rounded-xl overflow-hidden border border-gray-150 cursor-zoom-in group shadow-md"
+                  onMouseEnter={() => setIsZoomed(true)}
+                  onMouseLeave={() => {
+                    setIsZoomed(false);
+                    setZoomPos({ x: 50, y: 50 });
+                  }}
+                  onMouseMove={handleZoomMouseMove}
+                  onClick={() => {
+                    setIsLightboxOpen(true);
+                    setLightboxScale(1.8);
+                  }}
+                >
                   <img 
                     src={selectedProduct.imageUrl} 
                     alt={selectedProduct.title}
-                    className="w-full h-full object-cover"
+                    className="w-full h-full object-cover transition-transform duration-75 select-none"
+                    style={{
+                      transformOrigin: `${zoomPos.x}% ${zoomPos.y}%`,
+                      transform: isZoomed ? 'scale(2.3)' : 'scale(1)',
+                    }}
+                    referrerPolicy="no-referrer"
                   />
+                  {/* Zoom indicator label overlay */}
+                  <div className="absolute bottom-3 left-3 right-3 bg-black/75 backdrop-blur-md text-[9px] md:text-[10px] text-white px-3 py-2 rounded-xl font-bold tracking-normal flex items-center justify-center gap-1.5 pointer-events-none transition-all opacity-95 group-hover:opacity-100 shadow-lg text-center">
+                    <ZoomIn size={12} className="text-brand-gold shrink-0 animate-bounce" />
+                    <span>জুম করতে কার্সার রাখুন অথবা ক্লিক করে বড় করুন</span>
+                  </div>
                 </div>
                 <div className="flex gap-2 mt-4">
                   <div className="w-20 h-20 rounded-lg border-2 border-[#438a1a] p-1 cursor-pointer overflow-hidden">
@@ -682,6 +740,80 @@ export default function ProductShowcase({ onOrderNow, onAddToCart }: ProductShow
                 </div>
               </div>
             </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Lightbox full-screen zoom explorer */}
+      <AnimatePresence>
+        {isLightboxOpen && selectedProduct && (
+          <div className="fixed inset-0 z-[160] flex flex-col items-center justify-center bg-black/95 backdrop-blur-xl p-4 select-none">
+            {/* Top Bar with actions */}
+            <div className="absolute top-4 left-4 right-4 flex items-center justify-between z-[170] text-white">
+              <div className="flex flex-col">
+                <span className="text-[10px] font-black uppercase text-brand-gold tracking-widest">HQ PRODUCT PREVIEW</span>
+                <span className="text-xs md:text-sm font-extrabold line-clamp-1">{selectedProduct.title}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                {/* Zoom Controls */}
+                <button 
+                  onClick={() => setLightboxScale(prev => Math.max(1, prev - 0.5))}
+                  className="p-2 bg-neutral-800 hover:bg-neutral-700 text-white rounded-xl transition-all active:scale-90 flex items-center gap-1 text-[10px] font-black"
+                  title="Zoom Out"
+                >
+                  <ZoomOut size={12} />
+                  কম করুন
+                </button>
+                <div className="bg-neutral-900 border border-neutral-800 text-[10px] uppercase font-mono px-2.5 py-1.5 rounded-l-xl rounded-r-xl text-brand-gold font-bold">
+                  {lightboxScale.toFixed(1)}x
+                </div>
+                <button 
+                  onClick={() => setLightboxScale(prev => Math.min(4, prev + 0.5))}
+                  className="p-2 bg-[#438a1a] hover:bg-[#346b14] text-white rounded-xl transition-all active:scale-90 flex items-center gap-1 text-[10px] font-black"
+                  title="Zoom In"
+                >
+                  <ZoomIn size={12} />
+                  বাড়িয়ে দেখুন
+                </button>
+                
+                {/* Close Button */}
+                <button 
+                  onClick={() => {
+                    setIsLightboxOpen(false);
+                    setLightboxScale(1);
+                  }}
+                  className="p-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl transition-all active:scale-90 ml-2"
+                  title="Close Preview"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+            </div>
+
+            {/* Main Interactive Zoom Area */}
+            <div className="relative w-full max-w-xl aspect-[4/5] overflow-hidden rounded-2xl border border-neutral-800 shadow-2xl flex items-center justify-center bg-neutral-950/40">
+              <motion.img 
+                src={selectedProduct.imageUrl} 
+                alt={selectedProduct.title}
+                key={lightboxScale}
+                initial={{ scale: 0.95 }}
+                animate={{ scale: lightboxScale }}
+                transition={{ type: "spring", stiffness: 300, damping: 25 }}
+                className="max-h-[75vh] object-contain cursor-grab active:cursor-grabbing selection:bg-transparent"
+                style={{
+                  touchAction: "none"
+                }}
+                referrerPolicy="no-referrer"
+              />
+            </div>
+
+            {/* Bottom help indicator */}
+            <div className="absolute bottom-6 text-center text-neutral-400 max-w-sm px-6">
+              <div className="inline-flex items-center gap-2 bg-neutral-900 border border-neutral-800 px-4 py-2 rounded-full text-[10px] font-bold text-neutral-300">
+                <Info size={12} className="text-brand-gold shrink-0" />
+                <span>ড্রেসের কালার ও সুতার নিখুঁত কাজ দেখতে বাটন দিয়ে জুম করুন</span>
+              </div>
+            </div>
           </div>
         )}
       </AnimatePresence>

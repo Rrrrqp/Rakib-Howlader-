@@ -93,8 +93,21 @@ export const createProduct = async (productData: Partial<Product>) => {
 };
 
 export const getAllProducts = async (onlyActive = false): Promise<Product[]> => {
+  const cacheKey = onlyActive ? 'cached_products_active' : 'cached_products_all';
+  let cachedData: Product[] = [];
+  try {
+    const cached = localStorage.getItem(cacheKey);
+    if (cached) {
+      cachedData = JSON.parse(cached);
+    }
+  } catch (e) {
+    console.warn("Failed to retrieve cached products:", e);
+  }
+
   const { db } = await initializeFirebase();
-  if (!db) return [];
+  if (!db) {
+    return cachedData;
+  }
 
   try {
     let q = query(collection(db, COLLECTION_NAME), orderBy('createdAt', 'desc'), limit(100));
@@ -102,10 +115,19 @@ export const getAllProducts = async (onlyActive = false): Promise<Product[]> => 
       q = query(collection(db, COLLECTION_NAME), where('isActive', '==', true), orderBy('createdAt', 'desc'), limit(100));
     }
     const snapshot = await getDocs(q);
-    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
+    const products = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
+    
+    // Save to local cache
+    try {
+      localStorage.setItem(cacheKey, JSON.stringify(products));
+    } catch (e) {
+      console.warn("Failed to cache products:", e);
+    }
+    
+    return products;
   } catch (error) {
-    await handleFirebaseError(error, OperationType.LIST, COLLECTION_NAME);
-    return [];
+    console.warn("Firebase product fetch failed, returning cached data:", error);
+    return cachedData;
   }
 };
 
