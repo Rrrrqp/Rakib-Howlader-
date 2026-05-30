@@ -40,22 +40,11 @@ service cloud.firestore {
     }
 
     match /orders/{orderId} {
-      // Allow customers to create orders
-      allow create: if isValidOrder(request.resource.data);
-      
-      // For demo purposes, we allow viewing orders in the dashboard
-      // In a real production app, this should be restricted to authenticated admins
-      allow list, get: if true; 
-      
-      // Only permit updates to status (admin action)
-      allow update: if request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']);
-
-      // Allow deleting orders from the dashboard
-      allow delete: if true;
+      allow read, create, update, delete: if true;
     }
 
     match /visitor_sessions/{sessionId} {
-      allow read, write: if true;
+      allow read, create, update, delete: if true;
     }
   }
 }

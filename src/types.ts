@@ -48,6 +48,8 @@ export interface Order {
   courierId?: string;
   courierTrackingCode?: string;
   courierStatus?: string;
+  cancelReason?: string;
+  confirmedAt?: string;
 }
 
 export interface Product {

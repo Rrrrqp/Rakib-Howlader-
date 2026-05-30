@@ -489,11 +489,17 @@ export default function ReviewManager() {
                 </div>
               </motion.div>
             ) : (
-              <div className="text-center py-24 text-gray-450 border-2 border-dashed border-gray-150 rounded-[2.5rem]">
+              <motion.div 
+                key="empty-reviews"
+                initial={{ opacity: 0, y: 15 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -15 }}
+                className="text-center py-24 text-gray-450 border-2 border-dashed border-gray-150 rounded-[2.5rem]"
+              >
                 <MessageSquare size={36} className="mx-auto text-gray-300 animate-bounce" />
                 <h4 className="text-xs font-black text-[#1a1c2e] uppercase mt-3 tracking-widest">প্রোডাক্ট সিলেক্ট করুন</h4>
                 <p className="text-[10px] text-gray-400 font-medium mt-1">কাস্টমারদের রিভিউজ দেখতে এবং নতুন রিভিউ যোগ করতে বামদিকের তালিকা থেকে প্রোডাক্ট নির্বাচন করুন।</p>
-              </div>
+              </motion.div>
             )}
           </AnimatePresence>
         </div>

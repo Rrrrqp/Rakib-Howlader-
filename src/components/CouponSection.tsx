@@ -81,6 +81,7 @@ export default function CouponSection({ onSelect }: CouponSectionProps) {
             <AnimatePresence mode="wait">
               {revealed && selectedIndex === index ? (
                 <motion.div 
+                  key="revealed-selected"
                   initial={{ scale: 0, rotate: -180 }}
                   animate={{ scale: 1, rotate: 0 }}
                   className="flex flex-col items-center"
@@ -91,6 +92,7 @@ export default function CouponSection({ onSelect }: CouponSectionProps) {
                 </motion.div>
               ) : revealed ? (
                 <motion.div 
+                  key="revealed-other"
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 0.2 }}
                   className="text-xs font-bold"
@@ -99,6 +101,7 @@ export default function CouponSection({ onSelect }: CouponSectionProps) {
                 </motion.div>
               ) : (
                 <motion.div 
+                  key="unrevealed"
                   className="flex flex-col items-center"
                   animate={{ y: [0, -2, 0] }}
                   transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
