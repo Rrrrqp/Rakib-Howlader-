@@ -86,13 +86,19 @@ export const createProduct = async (productData: Partial<Product>) => {
 
   try {
     const docRef = await addDoc(collection(db, COLLECTION_NAME), fullProduct);
+    try {
+      localStorage.removeItem('cached_products_active');
+      localStorage.removeItem('cached_products_all');
+    } catch (e) {
+      console.warn("Failed to clear local cached products on creation:", e);
+    }
     return { id: docRef.id, ...fullProduct };
   } catch (error) {
     await handleFirebaseError(error, OperationType.WRITE, COLLECTION_NAME);
   }
 };
 
-export const getAllProducts = async (onlyActive = false): Promise<Product[]> => {
+export const getAllProducts = async (onlyActive = false, forceRefresh = false): Promise<Product[]> => {
   const cacheKey = onlyActive ? 'cached_products_active' : 'cached_products_all';
   let cachedData: Product[] = [];
   try {
@@ -102,6 +108,11 @@ export const getAllProducts = async (onlyActive = false): Promise<Product[]> => 
     }
   } catch (e) {
     console.warn("Failed to retrieve cached products:", e);
+  }
+
+  // If we have cached products and forceRefresh is false, return immediately
+  if (cachedData && cachedData.length > 0 && !forceRefresh) {
+    return cachedData;
   }
 
   const { db } = await initializeFirebase();
@@ -138,6 +149,12 @@ export const updateProduct = async (id: string, data: Partial<Product>) => {
   try {
     const docRef = doc(db, COLLECTION_NAME, id);
     await updateDoc(docRef, data);
+    try {
+      localStorage.removeItem('cached_products_active');
+      localStorage.removeItem('cached_products_all');
+    } catch (e) {
+      console.warn("Failed to clear local cached products on update:", e);
+    }
   } catch (error) {
     await handleFirebaseError(error, OperationType.UPDATE, `${COLLECTION_NAME}/${id}`);
   }
@@ -150,6 +167,12 @@ export const deleteProduct = async (id: string) => {
   try {
     const docRef = doc(db, COLLECTION_NAME, id);
     await deleteDoc(docRef);
+    try {
+      localStorage.removeItem('cached_products_active');
+      localStorage.removeItem('cached_products_all');
+    } catch (e) {
+      console.warn("Failed to clear local cached products on deletion:", e);
+    }
   } catch (error) {
     await handleFirebaseError(error, OperationType.DELETE, `${COLLECTION_NAME}/${id}`);
   }

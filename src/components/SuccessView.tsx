@@ -55,6 +55,15 @@ export default function SuccessView({ order }: SuccessViewProps) {
         animate={{ opacity: 1, y: 0 }}
         className="max-w-xl w-full space-y-8"
       >
+        {/* Preview of Invoice for High Professionalism (POS Option) - Placed at the top */}
+        <div className="-mb-24 sm:-mb-28 md:mb-0">
+           <p className="text-center text-xs text-gray-400 mb-4 uppercase tracking-[0.2em] font-bold">ইনভয়েস প্রিভিউ (Invoice Preview)</p>
+           <div className="rounded-2xl border-2 border-white shadow-xl overflow-hidden scale-[0.8] origin-top md:scale-100">
+             <DigitalInvoice order={order} />
+           </div>
+        </div>
+
+        {/* Success Card with Details (Enclosing Order Successful, Download buttons, and footer note) - Placed below Invoice Preview */}
         <div className="premium-card p-6 md:p-10 rounded-3xl text-center space-y-6 relative overflow-hidden shadow-2xl">
           <div className="absolute top-0 left-0 w-full h-2 luxury-gradient" />
           
@@ -116,14 +125,6 @@ export default function SuccessView({ order }: SuccessViewProps) {
           <div ref={invoiceRef} className="bg-white">
             <DigitalInvoice order={order} />
           </div>
-        </div>
-
-        {/* Preview of Invoice for High Professionalism */}
-        <div className="mt-8">
-           <p className="text-center text-xs text-gray-400 mb-4 uppercase tracking-[0.2em] font-bold">ইনভয়েস প্রিভিউ (Invoice Preview)</p>
-           <div className="rounded-2xl border-2 border-white shadow-xl overflow-hidden scale-[0.8] origin-top md:scale-100">
-             <DigitalInvoice order={order} />
-           </div>
         </div>
       </motion.div>
     </div>

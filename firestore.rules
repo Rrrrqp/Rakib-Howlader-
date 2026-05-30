@@ -36,7 +36,7 @@ service cloud.firestore {
     }
 
     match /reviews/{reviewId} {
-      allow read, write: if true;
+      allow read, create, update, delete: if true;
     }
 
     match /orders/{orderId} {
@@ -49,6 +49,9 @@ service cloud.firestore {
       
       // Only permit updates to status (admin action)
       allow update: if request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']);
+
+      // Allow deleting orders from the dashboard
+      allow delete: if true;
     }
 
     match /visitor_sessions/{sessionId} {

@@ -3,6 +3,7 @@ import { getAllProducts } from '../services/productService';
 import { getAllOrders } from '../services/orderService';
 import { getReviewsForProduct, createReview, getProductSalesCount, ProductReview } from '../services/reviewService';
 import { Product } from '../types';
+import { trackProductView, logVisitorEvent, updateVisitorStage } from '../services/trackingService';
 import { ShoppingBag, Eye, ShoppingCart, Loader2, Sparkles, X, Star, Share2, Info, Hash, ArrowDown, ArrowUp, Flame, SlidersHorizontal, Gift, Trophy, MessageSquare, Send, CheckCircle, ZoomIn, ZoomOut, Maximize2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -76,6 +77,7 @@ export default function ProductShowcase({ onOrderNow, onAddToCart }: ProductShow
 
   useEffect(() => {
     const fetch = async () => {
+      // First, get cached or immediate active products for instant loading speed
       const data = await getAllProducts(true);
       setProducts(data);
       try {
@@ -86,6 +88,14 @@ export default function ProductShowcase({ onOrderNow, onAddToCart }: ProductShow
         console.warn("Could not load orders for sales counter", e);
       }
       setLoading(false);
+
+      // Perform a background network fresh-fetch to reflect any recent admin visibility or product edits instantly
+      try {
+        const freshData = await getAllProducts(true, true);
+        setProducts(freshData);
+      } catch (e) {
+        console.warn("Could not get background fresh products updates:", e);
+      }
     };
     fetch();
   }, []);
@@ -107,6 +117,10 @@ export default function ProductShowcase({ onOrderNow, onAddToCart }: ProductShow
           console.error("Failed to load reviews", err);
           setReviewsLoading(false);
         });
+
+      // Track product view and stage update
+      trackProductView(selectedProduct).catch(err => console.warn(err));
+      logVisitorEvent('page_view', `view_${selectedProduct.productCode}`, `প্রোডাক্ট বিস্তারিত দেখছেন: "${selectedProduct.title}" 🔍`, 'product_details');
     } else {
       setReviews([]);
     }
@@ -126,6 +140,7 @@ export default function ProductShowcase({ onOrderNow, onAddToCart }: ProductShow
       );
       
       setReviews(prev => [added, ...prev]);
+      logVisitorEvent('click', 'submit_review', `রিভিউ সাবমিট করেছেন: "★${newReviewRating} - ${newReviewComment.substring(0, 20)}..." ✍️`, 'product_details');
       setNewReviewName('');
       setNewReviewComment('');
       setNewReviewRating(5);
@@ -205,7 +220,10 @@ export default function ProductShowcase({ onOrderNow, onAddToCart }: ProductShow
           {categories.map((cat) => (
             <button
               key={cat.id}
-              onClick={() => setActiveCategory(cat.id)}
+              onClick={() => {
+                setActiveCategory(cat.id);
+                logVisitorEvent('click', `category_${cat.id}`, `ক্যাটাগরি পরিবর্তন করেছেন: "${cat.name}" 📂`, 'home');
+              }}
               className={`px-6 py-3 rounded-xl text-[11px] md:text-xs font-black uppercase tracking-widest transition-all whitespace-nowrap flex-shrink-0
                 ${activeCategory === cat.id 
                   ? 'bg-brand-charcoal text-white shadow-lg shadow-brand-charcoal/20 ring-1 ring-brand-charcoal' 
@@ -229,7 +247,10 @@ export default function ProductShowcase({ onOrderNow, onAddToCart }: ProductShow
 
           <div className="flex bg-white p-1 rounded-2xl border border-gray-150 overflow-x-auto w-full md:w-auto no-scrollbar gap-1 flex-nowrap scroll-px-1">
             <button
-              onClick={() => setSortBy('default')}
+              onClick={() => {
+                setSortBy('default');
+                logVisitorEvent('click', 'sort_default', 'প্রোডাক্ট সর্টিং করেছেন: "সবগুলো" 📊', 'home');
+              }}
               className={`px-4 py-2.5 rounded-xl text-[9px] md:text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap flex items-center gap-1.5 shrink-0
                 ${sortBy === 'default' 
                   ? 'bg-brand-charcoal text-white shadow-md font-black' 
@@ -238,7 +259,10 @@ export default function ProductShowcase({ onOrderNow, onAddToCart }: ProductShow
               সবগুলো
             </button>
             <button
-              onClick={() => setSortBy('price-asc')}
+              onClick={() => {
+                setSortBy('price-asc');
+                logVisitorEvent('click', 'sort_price_asc', 'প্রোডাক্ট সর্টিং করেছেন: "কম দাম থেকে বেশি" 📊', 'home');
+              }}
               className={`px-4 py-2.5 rounded-xl text-[9px] md:text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap flex items-center gap-1.5 shrink-0
                 ${sortBy === 'price-asc' 
                   ? 'bg-brand-charcoal text-white shadow-md font-black' 
@@ -248,7 +272,10 @@ export default function ProductShowcase({ onOrderNow, onAddToCart }: ProductShow
               কম দাম থেকে বেশি
             </button>
             <button
-              onClick={() => setSortBy('price-desc')}
+              onClick={() => {
+                setSortBy('price-desc');
+                logVisitorEvent('click', 'sort_price_desc', 'প্রোডাক্ট সর্টিং করেছেন: "বেশি দাম থেকে কম" 📊', 'home');
+              }}
               className={`px-4 py-2.5 rounded-xl text-[9px] md:text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap flex items-center gap-1.5 shrink-0
                 ${sortBy === 'price-desc' 
                   ? 'bg-brand-charcoal text-white shadow-md font-black' 
@@ -258,7 +285,10 @@ export default function ProductShowcase({ onOrderNow, onAddToCart }: ProductShow
               বেশি দাম থেকে কম
             </button>
             <button
-              onClick={() => setSortBy('top-selling')}
+              onClick={() => {
+                setSortBy('top-selling');
+                logVisitorEvent('click', 'sort_top_selling', 'প্রোডাক্ট সর্টিং করেছেন: "টপ সেলিং" 📊', 'home');
+              }}
               className={`px-4 py-2.5 rounded-xl text-[9px] md:text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap flex items-center gap-1.5 shrink-0
                 ${sortBy === 'top-selling' 
                   ? 'bg-amber-500 text-[#1a1c2e] shadow-md font-black' 
@@ -543,14 +573,22 @@ export default function ProductShowcase({ onOrderNow, onAddToCart }: ProductShow
                   <div className="flex items-center gap-4">
                     <div className="inline-flex items-center border-2 border-gray-200 rounded-xl bg-gray-50 p-1">
                       <button 
-                        onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                        onClick={() => {
+                          const newQty = Math.max(1, quantity - 1);
+                          setQuantity(newQty);
+                          logVisitorEvent('click', 'change_quantity', `প্রোডাক্টের পরিমাণ কমিয়েছেন: ${newQty} টি 🔢`, 'product_details');
+                        }}
                         className="w-10 h-10 flex items-center justify-center font-black text-xl text-gray-600 hover:bg-white rounded-lg transition-colors"
                       >
                         -
                       </button>
                       <span className="w-12 text-center font-black text-lg text-gray-900">{quantity}</span>
                       <button 
-                         onClick={() => setQuantity(quantity + 1)}
+                        onClick={() => {
+                          const newQty = quantity + 1;
+                          setQuantity(newQty);
+                          logVisitorEvent('click', 'change_quantity', `প্রোডাক্টের পরিমাণ বাড়িয়েছেন: ${newQty} টি 🔢`, 'product_details');
+                        }}
                         className="w-10 h-10 flex items-center justify-center font-black text-xl text-gray-600 hover:bg-white rounded-lg transition-colors"
                       >
                         +

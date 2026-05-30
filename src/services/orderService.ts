@@ -62,21 +62,46 @@ export const createOrder = async (orderData: Partial<Order>) => {
   }
 };
 
-export const getAllOrders = async (): Promise<Order[]> => {
+export const getAllOrders = async (forceRefresh = false): Promise<Order[]> => {
+  let cachedOrders: Order[] = [];
+  try {
+    const cached = localStorage.getItem('cached_orders');
+    if (cached) {
+      cachedOrders = JSON.parse(cached);
+    }
+  } catch (e) {
+    console.warn("Failed to retrieve cached orders:", e);
+  }
+
+  // If cached data exists and we are not forcing a refresh, return cached data immediately
+  if (cachedOrders && cachedOrders.length > 0 && !forceRefresh) {
+    return cachedOrders;
+  }
+
   const { db } = await initializeFirebase();
   if (!db) {
     console.warn("Firebase not initialized. Reading from localStorage.");
-    return JSON.parse(localStorage.getItem('sera_orders') || '[]');
+    const fallback = JSON.parse(localStorage.getItem('sera_orders') || '[]');
+    return fallback.length > 0 ? fallback : cachedOrders;
   }
 
   const path = 'orders';
   try {
     const q = query(collection(db, path), orderBy('createdAt', 'desc'));
     const snapshot = await getDocs(q);
-    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order));
+    const ordersList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order));
+    
+    // Update local cache
+    try {
+      localStorage.setItem('cached_orders', JSON.stringify(ordersList));
+    } catch (cacheErr) {
+      console.warn("Failed to cache orders to localStorage:", cacheErr);
+    }
+    
+    return ordersList;
   } catch (error) {
     await handleFirestoreError(error, OperationType.LIST, path);
-    return [];
+    return cachedOrders;
   }
 };
 
@@ -117,6 +142,18 @@ export const updateOrder = async (id: string, data: Partial<Order>) => {
 };
 
 export const deleteOrder = async (id: string) => {
+  // Proactively remove from cached_orders as well to keep UI cache in sync
+  try {
+    const cached = localStorage.getItem('cached_orders');
+    if (cached) {
+      const parsed = JSON.parse(cached);
+      const filtered = parsed.filter((o: any) => o.id !== id);
+      localStorage.setItem('cached_orders', JSON.stringify(filtered));
+    }
+  } catch (e) {
+    console.warn("Failed to update cached_orders in deleteOrder:", e);
+  }
+
   const { db } = await initializeFirebase();
   if (!db) {
     const existing = JSON.parse(localStorage.getItem('sera_orders') || '[]');

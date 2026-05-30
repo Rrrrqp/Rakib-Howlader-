@@ -1,10 +1,28 @@
 import { doc, setDoc, getDoc, collection, onSnapshot, query } from 'firebase/firestore';
 import { initializeFirebase } from '../lib/firebase';
-import { VisitorSession, ProductView, VisitorStage, Product } from '../types';
+import { VisitorSession, ProductView, VisitorStage, Product, TrackingEvent } from '../types';
 
 let currentSessionId: string | null = null;
 let currentSessionData: VisitorSession | null = null;
 let heartbeatInterval: any = null;
+
+// Helper to remove undefined fields recursively so Firestore doesn't reject writing them
+const cleanUndefined = (obj: any): any => {
+  if (obj === null || typeof obj !== 'object') {
+    return obj;
+  }
+  if (Array.isArray(obj)) {
+    return obj.map(cleanUndefined);
+  }
+  const result: any = {};
+  for (const key of Object.keys(obj)) {
+    const val = obj[key];
+    if (val !== undefined) {
+      result[key] = cleanUndefined(val);
+    }
+  }
+  return result;
+};
 
 // Helper to generate a random session ID if not already stored
 export const getOrCreateSessionId = (): string => {
@@ -49,7 +67,7 @@ export const startVisitorSession = async (): Promise<VisitorSession> => {
       currentSessionData = docSnap.data() as VisitorSession;
       // Update activity
       currentSessionData.lastActiveAt = now;
-      await setDoc(docRef, { lastActiveAt: now }, { merge: true });
+      await setDoc(docRef, cleanUndefined({ lastActiveAt: now }), { merge: true });
     } else {
       currentSessionData = {
         sessionId,
@@ -63,7 +81,7 @@ export const startVisitorSession = async (): Promise<VisitorSession> => {
         createdAt: now,
         lastActiveAt: now
       };
-      await setDoc(docRef, currentSessionData);
+      await setDoc(docRef, cleanUndefined(currentSessionData));
     }
   } catch (error) {
     console.warn("Failed to retrieve or create visitor session starting from scratch locally", error);
@@ -88,7 +106,7 @@ export const startVisitorSession = async (): Promise<VisitorSession> => {
       const { db: freshDb } = await initializeFirebase();
       const currentNow = new Date().toISOString();
       const sessionDoc = doc(freshDb, 'visitor_sessions', sessionId);
-      await setDoc(sessionDoc, { lastActiveAt: currentNow }, { merge: true });
+      await setDoc(sessionDoc, cleanUndefined({ lastActiveAt: currentNow }), { merge: true });
       if (currentSessionData) {
         currentSessionData.lastActiveAt = currentNow;
       }
@@ -107,6 +125,20 @@ export const updateVisitorStage = async (stage: VisitorStage, stageLabel: string
   }
   if (!currentSessionData) return;
 
+  const STAGE_RANKS: Record<VisitorStage, number> = {
+    browsing_home: 1,
+    product_view: 2,
+    added_to_cart: 3,
+    filling_checkout: 4,
+    order_completed: 5
+  };
+
+  const currentStage = currentSessionData.currentStage || 'browsing_home';
+  if (STAGE_RANKS[stage] < STAGE_RANKS[currentStage]) {
+    // Stage downgrade is forbidden to preserve peak funnel progress!
+    return;
+  }
+
   currentSessionData.currentStage = stage;
   currentSessionData.currentStageLabel = stageLabel;
   currentSessionData.lastActiveAt = new Date().toISOString();
@@ -114,11 +146,11 @@ export const updateVisitorStage = async (stage: VisitorStage, stageLabel: string
   try {
     const { db } = await initializeFirebase();
     const docRef = doc(db, 'visitor_sessions', currentSessionData.sessionId);
-    await setDoc(docRef, {
+    await setDoc(docRef, cleanUndefined({
       currentStage: stage,
       currentStageLabel: stageLabel,
       lastActiveAt: currentSessionData.lastActiveAt
-    }, { merge: true });
+    }), { merge: true });
   } catch (err) {
     console.warn("Failed to update visitor stage:", err);
   }
@@ -153,19 +185,34 @@ export const trackProductView = async (product: Product) => {
   }
 
   currentSessionData.views = updatedViews;
-  currentSessionData.currentStage = 'product_view';
-  currentSessionData.currentStageLabel = `প্রোডাক্ট দেখছেন: ${product.title}`;
+  
+  const STAGE_RANKS: Record<VisitorStage, number> = {
+    browsing_home: 1,
+    product_view: 2,
+    added_to_cart: 3,
+    filling_checkout: 4,
+    order_completed: 5
+  };
+  const currentStage = currentSessionData.currentStage || 'browsing_home';
+  const shouldUpdateStage = STAGE_RANKS['product_view'] >= STAGE_RANKS[currentStage];
+
+  if (shouldUpdateStage) {
+    currentSessionData.currentStage = 'product_view';
+    currentSessionData.currentStageLabel = `প্রোডাক্ট দেখছেন: ${product.title}`;
+  }
   currentSessionData.lastActiveAt = now;
 
   try {
     const { db } = await initializeFirebase();
     const docRef = doc(db, 'visitor_sessions', currentSessionData.sessionId);
-    await setDoc(docRef, {
+    await setDoc(docRef, cleanUndefined({
       views: updatedViews,
-      currentStage: 'product_view',
-      currentStageLabel: `প্রোডাক্ট দেখছেন: ${product.title}`,
+      ...(shouldUpdateStage && {
+        currentStage: 'product_view',
+        currentStageLabel: `প্রোডাক্ট দেখছেন: ${product.title}`
+      }),
       lastActiveAt: now
-    }, { merge: true });
+    }), { merge: true });
   } catch (err) {
     console.warn("Failed to track product view in firebase:", err);
   }
@@ -177,6 +224,7 @@ export const updateVisitorCustomerInfo = async (info: {
   mobileNumber?: string;
   district?: string;
   upazila?: string;
+  address?: string;
 }) => {
   if (!currentSessionData) {
     await startVisitorSession();
@@ -202,15 +250,119 @@ export const updateVisitorCustomerInfo = async (info: {
     updates.upazila = info.upazila;
     currentSessionData.upazila = updates.upazila;
   }
+  if (info.address !== undefined) {
+    updates.address = info.address;
+    currentSessionData.address = updates.address;
+  }
 
   currentSessionData.lastActiveAt = now;
 
   try {
     const { db } = await initializeFirebase();
     const docRef = doc(db, 'visitor_sessions', currentSessionData.sessionId);
-    await setDoc(docRef, updates, { merge: true });
+    await setDoc(docRef, cleanUndefined(updates), { merge: true });
   } catch (err) {
     console.warn("Failed to update visitor contact info:", err);
+  }
+};
+
+// Log a specific interaction event (e.g. click, scroll, input, visit)
+export const logVisitorEvent = async (
+  type: 'click' | 'scroll' | 'input' | 'page_view' | 'system',
+  target: string,
+  description: string,
+  path: string,
+  scrollDepth?: number
+) => {
+  if (!currentSessionData) {
+    try {
+      await startVisitorSession();
+    } catch {
+      return;
+    }
+  }
+  if (!currentSessionData) return;
+
+  const now = new Date();
+  const elapsed = Math.round((now.getTime() - new Date(currentSessionData.createdAt).getTime()) / 1000);
+
+  const event: TrackingEvent = {
+    id: 'evt_' + Math.random().toString(36).substring(2, 9),
+    type,
+    description,
+    target,
+    path,
+    timestamp: now.toISOString(),
+    elapsedTime: Math.max(0, elapsed)
+  };
+
+  if (scrollDepth !== undefined) {
+    event.scrollDepth = scrollDepth;
+  }
+
+  if (!currentSessionData.events) {
+    currentSessionData.events = [];
+  }
+
+  // Deduplicate scroll logs within 4 seconds
+  if (type === 'scroll') {
+    const lastEvent = currentSessionData.events[0];
+    if (lastEvent && lastEvent.type === 'scroll') {
+      const diff = now.getTime() - new Date(lastEvent.timestamp).getTime();
+      if (diff < 4000) {
+        lastEvent.scrollDepth = scrollDepth;
+        lastEvent.description = description;
+        lastEvent.timestamp = event.timestamp;
+        lastEvent.elapsedTime = Math.max(0, elapsed);
+        try {
+          const { db } = await initializeFirebase();
+          const docRef = doc(db, 'visitor_sessions', currentSessionData.sessionId);
+          await setDoc(docRef, cleanUndefined({ events: currentSessionData.events }), { merge: true });
+        } catch (e) {
+          console.warn("Deduplicate scroll event failed", e);
+        }
+        return;
+      }
+    }
+  }
+
+  // Deduplicate input field typing logs within 5 seconds for the same target
+  if (type === 'input') {
+    const lastEvent = currentSessionData.events[0];
+    if (lastEvent && lastEvent.type === 'input' && lastEvent.target === target) {
+      const diff = now.getTime() - new Date(lastEvent.timestamp).getTime();
+      if (diff < 5000) {
+        lastEvent.description = description;
+        lastEvent.timestamp = event.timestamp;
+        lastEvent.elapsedTime = Math.max(0, elapsed);
+        try {
+          const { db } = await initializeFirebase();
+          const docRef = doc(db, 'visitor_sessions', currentSessionData.sessionId);
+          await setDoc(docRef, cleanUndefined({ events: currentSessionData.events }), { merge: true });
+        } catch (e) {
+          console.warn("Deduplicate input event failed", e);
+        }
+        return;
+      }
+    }
+  }
+
+  // Add search/click/visit event to the front of the list
+  currentSessionData.events.unshift(event);
+
+  if (currentSessionData.events.length > 60) {
+    currentSessionData.events = currentSessionData.events.slice(0, 60);
+  }
+
+  try {
+    const { db } = await initializeFirebase();
+    const docRef = doc(db, 'visitor_sessions', currentSessionData.sessionId);
+    await setDoc(docRef, cleanUndefined({
+      events: currentSessionData.events,
+      lastActiveAt: now.toISOString()
+    }), { merge: true });
+  } catch (err) {
+    console.warn("Failed to log visitor event:", err);
   }
 };
 

@@ -25,7 +25,7 @@ import brandLogo from './assets/images/sfh_logo_1779435027377.png';
 import { getBrandLogoSettings } from './services/settingsService';
 import ProductShowcase from './components/ProductShowcase';
 import { Product as ProductType } from './types';
-import { startVisitorSession, updateVisitorStage, trackProductView, updateVisitorCustomerInfo } from './services/trackingService';
+import { startVisitorSession, updateVisitorStage, trackProductView, updateVisitorCustomerInfo, logVisitorEvent } from './services/trackingService';
 
 export default function App() {
   const [isSubmitted, setIsSubmitted] = useState(false);
@@ -60,10 +60,32 @@ export default function App() {
   useEffect(() => {
     startVisitorSession().then(() => {
       updateVisitorStage('browsing_home', 'হোম পেজ ব্রাউজিং');
+      logVisitorEvent('page_view', 'home', 'ভিজিটর ওয়েবসাইটে প্রবেশ করেছেন 🌐', 'home');
     }).catch(err => {
       console.error("Failed to start tracking session:", err);
     });
   }, []);
+
+  // Dynamic window scroll depth tracker
+  useEffect(() => {
+    let lastScrollDepth = 0;
+    const handleScroll = () => {
+      const scrollTop = window.scrollY;
+      const docHeight = document.documentElement.scrollHeight - window.innerHeight;
+      if (docHeight <= 0) return;
+      const pct = Math.round((scrollTop / docHeight) * 100);
+      
+      // Log in increments of 15% to avoid high frequency writes, and only if depth increased
+      if (pct > lastScrollDepth + 15) {
+        lastScrollDepth = pct;
+        const pagePath = checkoutMode ? 'checkout' : 'home';
+        logVisitorEvent('scroll', `scroll_${pct}`, `ভিজিটর পেইজের ${pct}% নিচে স্ক্রোল করেছেন 📜`, pagePath, pct);
+      }
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, [checkoutMode]);
 
   useEffect(() => {
     async function loadLogo() {
@@ -116,17 +138,49 @@ export default function App() {
   const mobileNumberWatch = watch('mobileNumber');
   const districtWatch = watch('district');
   const upazilaWatch = watch('upazila');
+  const addressWatch = watch('address');
 
   useEffect(() => {
-    if (checkoutMode && (customerNameWatch || mobileNumberWatch || districtWatch || upazilaWatch)) {
+    if (checkoutMode && (customerNameWatch || mobileNumberWatch || districtWatch || upazilaWatch || addressWatch)) {
       updateVisitorCustomerInfo({
         customerName: customerNameWatch,
         mobileNumber: mobileNumberWatch,
         district: districtWatch,
-        upazila: upazilaWatch
+        upazila: upazilaWatch,
+        address: addressWatch
       });
     }
-  }, [customerNameWatch, mobileNumberWatch, districtWatch, upazilaWatch, checkoutMode]);
+  }, [customerNameWatch, mobileNumberWatch, districtWatch, upazilaWatch, addressWatch, checkoutMode]);
+
+  useEffect(() => {
+    if (checkoutMode && customerNameWatch && customerNameWatch.trim().length > 1) {
+      logVisitorEvent('input', 'customerName', `নিজের নাম লিখছেন: "${customerNameWatch}" ✍️`, 'checkout');
+    }
+  }, [customerNameWatch, checkoutMode]);
+
+  useEffect(() => {
+    if (checkoutMode && mobileNumberWatch && mobileNumberWatch.trim().length > 1) {
+      logVisitorEvent('input', 'mobileNumber', `মোবাইল নম্বর লিখছেন: "${mobileNumberWatch}" 📱`, 'checkout');
+    }
+  }, [mobileNumberWatch, checkoutMode]);
+
+  useEffect(() => {
+    if (checkoutMode && districtWatch) {
+      logVisitorEvent('input', 'district', `জেলা নির্বাচন করেছেন: "${districtWatch}" 📍`, 'checkout');
+    }
+  }, [districtWatch, checkoutMode]);
+
+  useEffect(() => {
+    if (checkoutMode && upazilaWatch) {
+      logVisitorEvent('input', 'upazila', `উপজেলা নির্বাচন করেছেন: "${upazilaWatch}" 🗺️`, 'checkout');
+    }
+  }, [upazilaWatch, checkoutMode]);
+
+  useEffect(() => {
+    if (checkoutMode && addressWatch && addressWatch.trim().length > 1) {
+      logVisitorEvent('input', 'address', `বিস্তারিত ঠিকানা লিখছেন: "${addressWatch}" 🏠`, 'checkout');
+    }
+  }, [addressWatch, checkoutMode]);
 
   const onSubmit = async (data: any) => {
     if (cart.length === 0) {
@@ -166,6 +220,7 @@ export default function App() {
         
         // Mark tracking session as order completed!
         updateVisitorStage('order_completed', 'অর্ডার সফলভাবে সম্পন্ন করেছেন! 🎉');
+        logVisitorEvent('system', 'order_placed', 'অর্ডার সফলভাবে সম্পন্ন করেছেন! 🎉 🛍️', 'completed');
       }
 
       setSubmittedOrder(result);
@@ -183,8 +238,10 @@ export default function App() {
   useEffect(() => {
     if (checkoutMode) {
       updateVisitorStage('filling_checkout', 'অর্ডার ফরম পূরণ করছেন ✍️');
+      logVisitorEvent('page_view', 'checkout', 'চেকআউট ফর্ম পেজ ভিজিট করছেন ✍️', 'checkout');
     } else {
       updateVisitorStage('browsing_home', 'হোম পেজ ব্রাউজিং 🛍️');
+      logVisitorEvent('page_view', 'home', 'হোম পেজ ব্রাউজ করছেন 🛍️', 'home');
     }
   }, [checkoutMode]);
 
@@ -192,6 +249,7 @@ export default function App() {
     trackProductView(product).catch(err => {
       console.error("Failed to track view:", err);
     });
+    logVisitorEvent('click', 'order_showcase_direct', `ক্লিক করেছেন: "${product.title}" সরাসরি অর্ডার বাটন 🛒 (সাইজ: ${orderSize}, পরিমাণ: ${orderQuantity})`, 'home');
     handleAddToCart(product, orderQuantity, orderSize);
     setCheckoutMode(true);
     // Scroll to top
@@ -203,6 +261,8 @@ export default function App() {
     trackProductView(product).catch(err => {
       console.error("Failed to track product view:", err);
     });
+
+    logVisitorEvent('click', 'add_to_cart', `ক্লিক করেছেন: "${product.title}" ব্যাগ বাটন (সাইজ: ${orderSize}, পরিমাণ: ${orderQuantity}) 🎒`, 'home');
 
     const existingIndex = cart.findIndex(item => item.productId === product.id && item.size === orderSize);
     

@@ -23,8 +23,22 @@ import { Activity, MessageSquare } from 'lucide-react';
 
 export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState<'orders' | 'products' | 'settings' | 'live_visitors' | 'reviews'>('orders');
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [orders, setOrders] = useState<Order[]>(() => {
+    try {
+      const cached = localStorage.getItem('cached_orders');
+      return cached ? JSON.parse(cached) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [loading, setLoading] = useState(() => {
+    try {
+      const cached = localStorage.getItem('cached_orders');
+      return cached ? JSON.parse(cached).length === 0 : true;
+    } catch {
+      return true;
+    }
+  });
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [categoryFilter, setCategoryFilter] = useState('ALL');
@@ -43,7 +57,14 @@ export default function AdminDashboard() {
   const [giftCustomerName, setGiftCustomerName] = useState('');
 
   // Steadfast state variables
-  const [brandSettings, setBrandSettings] = useState<any>(null);
+  const [brandSettings, setBrandSettings] = useState<any>(() => {
+    try {
+      const cached = localStorage.getItem('brand_settings');
+      return cached ? JSON.parse(cached) : null;
+    } catch {
+      return null;
+    }
+  });
   const [bookingOrder, setBookingOrder] = useState<Order | null>(null);
   const [isBooking, setIsBooking] = useState(false);
   const [bookingForm, setBookingForm] = useState({
@@ -166,17 +187,20 @@ export default function AdminDashboard() {
   });
 
   const fetchOrders = async () => {
-    setLoading(true);
+    const hasCache = orders && orders.length > 0;
+    if (!hasCache) {
+      setLoading(true);
+    }
     try {
       const [ordersData, settingsData] = await Promise.all([
-        getAllOrders(),
+        getAllOrders(true), // forceRefresh = true to get the latest live data from Firestore in background
         getBrandSettings()
       ]);
       setOrders(ordersData);
       setBrandSettings(settingsData);
     } catch (e) {
       console.error("Failed to load dashboard data:", e);
-      const ordersData = await getAllOrders();
+      const ordersData = await getAllOrders(true);
       setOrders(ordersData);
     }
     setLoading(false);
@@ -185,6 +209,16 @@ export default function AdminDashboard() {
   useEffect(() => {
     fetchOrders();
   }, []);
+
+  useEffect(() => {
+    if (orders) {
+      try {
+        localStorage.setItem('cached_orders', JSON.stringify(orders));
+      } catch (cacheErr) {
+        console.warn("Failed to write updated orders cache to localStorage:", cacheErr);
+      }
+    }
+  }, [orders]);
 
   const handleStatusUpdate = async (orderId: string, newStatus: string) => {
     // Optimistic UI update

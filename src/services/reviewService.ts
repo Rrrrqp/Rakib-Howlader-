@@ -1,4 +1,4 @@
-import { collection, addDoc, getDocs, query, orderBy, where } from 'firebase/firestore';
+import { collection, addDoc, getDocs, query, orderBy, where, doc, deleteDoc } from 'firebase/firestore';
 import { initializeFirebase } from '../lib/firebase';
 
 export interface ProductReview {
@@ -60,13 +60,19 @@ export const getSeedReviews = (productId: string, productCode: string): ProductR
 /**
  * Save customer review
  */
-export const createReview = async (productId: string, customerName: string, rating: number, comment: string): Promise<ProductReview> => {
+export const createReview = async (
+  productId: string, 
+  customerName: string, 
+  rating: number, 
+  comment: string,
+  createdAt?: string
+): Promise<ProductReview> => {
   const newReview: ProductReview = {
     productId,
     customerName,
     rating,
     comment,
-    createdAt: new Date().toISOString()
+    createdAt: createdAt || new Date().toISOString()
   };
 
   const { db } = await initializeFirebase();
@@ -149,11 +155,11 @@ export const deleteReview = async (reviewId: string, productId: string): Promise
   // 2. Remove from Firestore if online
   if (db) {
     try {
-      const { deleteDoc, doc } = await import('firebase/firestore');
       await deleteDoc(doc(db, COLLECTION_NAME, reviewId));
       return true;
     } catch (error) {
-      console.warn("Could not delete review from Firestore (it might be a local-only review or offline):", error);
+      console.error("Could not delete review from Firestore:", error);
+      throw error; // Propagate the error so the UI/admin knows it failed
     }
   }
   return true;

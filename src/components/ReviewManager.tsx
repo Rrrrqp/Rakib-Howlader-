@@ -27,6 +27,10 @@ export default function ReviewManager() {
   const [actionSuccess, setActionSuccess] = useState('');
   const [actionError, setActionError] = useState('');
 
+  // Confirmation state for deleting a review
+  const [reviewToDelete, setReviewToDelete] = useState<ProductReview | null>(null);
+  const [deletingInProgress, setDeletingInProgress] = useState(false);
+
   // Load all products initially
   useEffect(() => {
     const fetchProducts = async () => {
@@ -35,6 +39,17 @@ export default function ReviewManager() {
         setProducts(data);
         if (data.length > 0) {
           setSelectedProduct(data[0]);
+        }
+        
+        // Background network updates to bypass cache limits
+        const freshData = await getAllProducts(true, true);
+        if (freshData.length > 0) {
+          setProducts(freshData);
+          setSelectedProduct(prev => {
+            if (!prev) return freshData[0];
+            const found = freshData.find(p => p.id === prev.id);
+            return found || freshData[0];
+          });
         }
       } catch (err) {
         console.error("Failed to load products for reviews manager", err);
@@ -88,25 +103,14 @@ export default function ReviewManager() {
     setActionError('');
 
     try {
-      // Create the base review
+      // Create the base review with optional custom date
       const rev = await createReview(
         selectedProduct.id || '',
         authorName,
         rating,
-        comment
+        comment,
+        customDate ? new Date(customDate).toISOString() : undefined
       );
-
-      // If a custom date was chosen, write it custom or keep the returned one
-      if (customDate) {
-        // Since createReview defaults to now, if the user requested a custom date, we override it
-        rev.createdAt = new Date(customDate).toISOString();
-        // Since createReview might save locally or online, let's keep track of our state updated with custom date
-        const localKey = `local_reviews_${selectedProduct.id}`;
-        const existing = JSON.parse(localStorage.getItem(localKey) || '[]');
-        // find if we can update the list in local storage
-        const updated = existing.map((r: any) => r.id === rev.id ? { ...r, createdAt: rev.createdAt } : r);
-        localStorage.setItem(localKey, JSON.stringify(updated));
-      }
 
       setReviews(prev => [rev, ...prev].sort((a, b) => 
         new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
@@ -128,18 +132,24 @@ export default function ReviewManager() {
   };
 
   // Handle single review deletion
-  const handleDeleteReview = async (reviewId: string) => {
-    if (!selectedProduct) return;
-    if (!confirm('আপনি কি নিশ্চিতভাবে এই রিভিউটি মুছে ফেলতে চান?')) return;
+  const handleDeleteReview = async () => {
+    if (!selectedProduct || !reviewToDelete) return;
+
+    setDeletingInProgress(true);
+    setActionSuccess('');
+    setActionError('');
 
     try {
-      await deleteReview(reviewId, selectedProduct.id || '');
-      setReviews(prev => prev.filter(r => r.id !== reviewId));
+      await deleteReview(reviewToDelete.id || '', selectedProduct.id || '');
+      setReviews(prev => prev.filter(r => r.id !== reviewToDelete.id));
       setActionSuccess('রিভিউটি সফলভাবে মুছে ফেলা হয়েছে।');
+      setReviewToDelete(null);
       setTimeout(() => setActionSuccess(''), 3000);
     } catch (err) {
       console.error("Error deleting review", err);
       setActionError('রিভিউ মুছে ফেলতে ত্রুটি হয়েছে।');
+    } finally {
+      setDeletingInProgress(false);
     }
   };
 
@@ -446,7 +456,7 @@ export default function ReviewManager() {
                               </div>
 
                               <button
-                                onClick={() => handleDeleteReview(rev.id || '')}
+                                onClick={() => setReviewToDelete(rev)}
                                 className="p-1 px-2 text-red-500 hover:text-white bg-red-50 hover:bg-red-600 border border-red-100 rounded-lg shrink-0 transition-all text-[9.5px] font-black flex items-center gap-0.5"
                                 title="রিভিউ মুছে ফেলুন"
                               >
@@ -489,6 +499,64 @@ export default function ReviewManager() {
         </div>
 
       </div>
+
+      {/* Custom Delete Confirmation Modal */}
+      <AnimatePresence>
+        {reviewToDelete && (
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-white rounded-[2rem] p-6 max-w-md w-full shadow-2xl border border-gray-100 space-y-5"
+            >
+              <div className="flex items-center gap-3">
+                <div className="p-3 bg-red-50 rounded-2xl text-red-600">
+                  <Trash2 size={24} />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-brand-charcoal">রিভিউ মুছে ফেলতে চান?</h3>
+                  <p className="text-xs text-gray-400 font-semibold mt-0.5">এই অ্যাকশনটি আর ফিরিয়ে নেওয়া যাবে না।</p>
+                </div>
+              </div>
+
+              <div className="bg-gray-50/50 border border-gray-100 p-4 rounded-2xl text-xs space-y-2">
+                <div className="flex items-center gap-1.5 font-bold text-gray-700">
+                  <span className="font-extrabold text-brand-charcoal">{reviewToDelete.customerName}</span>
+                  <span className="text-[10px] bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 px-1 py-0.2 rounded font-black uppercase">Verified</span>
+                </div>
+                <p className="text-gray-500 leading-relaxed font-semibold italic bg-white p-2.5 rounded-xl border border-gray-105">
+                  "{reviewToDelete.comment}"
+                </p>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  disabled={deletingInProgress}
+                  onClick={() => setReviewToDelete(null)}
+                  className="flex-1 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-xs font-black uppercase tracking-wider transition-all disabled:opacity-50 cursor-pointer text-center"
+                >
+                  বাতিল করুন
+                </button>
+                <button
+                  type="button"
+                  disabled={deletingInProgress}
+                  onClick={handleDeleteReview}
+                  className="flex-1 py-3 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-black uppercase tracking-wider transition-all shadow-md shadow-red-200 flex items-center justify-center gap-1.5 disabled:opacity-50 cursor-pointer"
+                >
+                  {deletingInProgress ? (
+                    <Loader2 size={12} className="animate-spin" />
+                  ) : (
+                    <Trash2 size={11} />
+                  )}
+                  নিশ্চিত মুছুন
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

@@ -11,8 +11,22 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 
 export default function ProductManager() {
-  const [products, setProducts] = useState<Product[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [products, setProducts] = useState<Product[]>(() => {
+    try {
+      const cached = localStorage.getItem('cached_products_all');
+      return cached ? JSON.parse(cached) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [loading, setLoading] = useState(() => {
+    try {
+      const cached = localStorage.getItem('cached_products_all');
+      return cached ? JSON.parse(cached).length === 0 : true;
+    } catch {
+      return true;
+    }
+  });
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
@@ -131,8 +145,11 @@ export default function ProductManager() {
   };
 
   const fetchProducts = async () => {
-    setLoading(true);
-    const data = await getAllProducts();
+    const hasCache = products && products.length > 0;
+    if (!hasCache) {
+      setLoading(true);
+    }
+    const data = await getAllProducts(false, true); // forceRefresh = true to get fresh network updates in background
     setProducts(data);
     setLoading(false);
   };
@@ -140,6 +157,16 @@ export default function ProductManager() {
   useEffect(() => {
     fetchProducts();
   }, []);
+
+  useEffect(() => {
+    if (products && products.length > 0) {
+      try {
+        localStorage.setItem('cached_products_all', JSON.stringify(products));
+      } catch (cacheErr) {
+        console.warn("Failed to write updated products cache to localStorage:", cacheErr);
+      }
+    }
+  }, [products]);
 
   const handleOpenModal = (product?: Product) => {
     if (product) {

@@ -88,6 +88,17 @@ export interface ProductView {
 
 export type VisitorStage = 'browsing_home' | 'product_view' | 'added_to_cart' | 'filling_checkout' | 'order_completed';
 
+export interface TrackingEvent {
+  id: string;
+  type: 'click' | 'scroll' | 'input' | 'page_view' | 'system';
+  description: string;
+  target: string;
+  path: string; // "home" | "product_details" | "checkout" | "completed"
+  scrollDepth?: number;
+  timestamp: string;
+  elapsedTime: number; // seconds since start
+}
+
 export interface VisitorSession {
   id?: string;
   sessionId: string;
@@ -96,10 +107,12 @@ export interface VisitorSession {
   mobileNumber: string;
   district?: string;
   upazila?: string;
+  address?: string;
   deviceInfo: string;
   currentStage: VisitorStage;
   currentStageLabel: string;
   views: ProductView[];
+  events?: TrackingEvent[];
   createdAt: string;
   lastActiveAt: string;
 }
