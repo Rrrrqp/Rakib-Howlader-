@@ -609,7 +609,7 @@ export default function ProductManager() {
                             <ShieldCheck className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
                             <input 
                               type="text"
-                              placeholder="যেমন: Sera Fashion"
+                              placeholder="যেমন: Sera Fashion House"
                               value={entry.brand}
                               onChange={(e) => updateFormEntry(index, { brand: e.target.value })}
                               className="w-full pl-12 pr-4 py-4 rounded-2xl bg-gray-50 border border-gray-100 focus:ring-2 focus:ring-rose-500/20 outline-none transition-all text-sm font-medium"

@@ -553,7 +553,7 @@ export default function ProductShowcase({ onOrderNow, onAddToCart }: ProductShow
 
                 <div className="flex items-center gap-2 text-xs font-black text-gray-900 pt-2">
                   <span>Brand :</span>
-                  <span className="text-gray-500 uppercase tracking-widest">{selectedProduct.brand || 'Shera Fashion House'}</span>
+                  <span className="text-gray-500 uppercase tracking-widest">{selectedProduct.brand || 'Sera Fashion House'}</span>
                 </div>
 
                 {/* Modal Discount Alert Callout */}

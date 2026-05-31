@@ -15,7 +15,7 @@ const COLLECTION_NAME = 'reviews';
 // Healthy, natural Bengali seed reviews to generate instant high-credibility realistic reviews
 // if the product doesn't have any custom reviews yet.
 const BANGLA_SEED_COMMENTS = [
-  { name: 'আফরিন আক্তার', comment: 'কাপড়টা খুবই আরামদায়ক এবং সেলাইয়ের কাজ নিখুঁত। ধন্যবাদ সেরা ফ্যাশন হাউসকে!', rating: 5 },
+  { name: 'আফরিন আক্তার', comment: 'কাপড়টা খুবই আরামদায়ক এবং সেলাইয়ের কাজ নিখুঁত। ধন্যবাদ সেরা ফ্যাশন হাউজকে!', rating: 5 },
   { name: 'সাদিয়া জাহান', comment: 'কালার কম্বিনেশনটা একদম ছবির মতোই চমৎকার ছিল। ২ দিনের মধ্যে দ্রুত ডেলিভারি পেয়েছি।', rating: 5 },
   { name: 'তাসনিম রেজা', comment: 'ফ্যাব্রিক খুবই সফট ও প্রিমিয়াম কোয়ালিটির। এই বাজেটে এর চেয়ে ভালো থ্রি-পিস পাওয়া অসম্ভব!', rating: 5 },
   { name: 'মাইশা কবির', comment: 'অনলাইন শপিংয়ে এত সুন্দর ফিটিং হবে আশা করিনি। কালারটা ধোয়ার পরেও একদম ঠিক আছে।', rating: 5 },

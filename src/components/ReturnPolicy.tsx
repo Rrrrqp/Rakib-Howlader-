@@ -89,7 +89,7 @@ export default function ReturnPolicy({ onClose }: { onClose?: () => void }) {
       </div>
 
       <div className="text-center">
-        <p className="text-brand-gold font-serif italic text-sm">সেরা ফ্যাশন হাউস এর উপর আস্থা রাখার জন্য ধন্যবাদ। ❤️</p>
+        <p className="text-brand-gold font-serif italic text-sm">সেরা ফ্যাশন হাউজ এর উপর আস্থা রাখার জন্য ধন্যবাদ। ❤️</p>
       </div>
     </div>
   );

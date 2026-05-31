@@ -618,7 +618,7 @@ export default function AdminDashboard() {
     const link = document.createElement("a");
     const url = URL.createObjectURL(blob);
     link.setAttribute("href", url);
-    link.setAttribute("download", `Sera_Orders_Export_${new Date().toISOString().split('T')[0]}.csv`);
+    link.setAttribute("download", `Sera_Fashion_House_Orders_Export_${new Date().toISOString().split('T')[0]}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -781,7 +781,7 @@ export default function AdminDashboard() {
               <LayoutDashboard size={20} />
             </div>
             <div>
-              <h1 className="text-sm font-black tracking-tight leading-none">Sera Admin <span className="bg-rose-600 text-[8px] px-1 rounded uppercase align-middle ml-1">PRO</span></h1>
+              <h1 className="text-sm font-black tracking-tight leading-none">Sera Fashion House Admin <span className="bg-rose-600 text-[8px] px-1 rounded uppercase align-middle ml-1">PRO</span></h1>
               <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-1">Management Suite</p>
             </div>
           </div>
@@ -1781,7 +1781,7 @@ export default function AdminDashboard() {
                             <span>হোয়াটসঅ্যাপ/এসএমএস টেমপ্লেট (CONFIRMATION SMS)</span>
                             <button
                               onClick={() => {
-                                const smsText = `প্রিয় ${viewingOrder.customerName}, অভিনন্দন! সেরা ফ্যাশন হাউস (Sera Fashion House) থেকে আপনার #${viewingOrder.orderId} নং অর্ডারটি সফলভাবে কনফার্ম করা হয়েছে।\n📦 অর্ডার আইডি: #${viewingOrder.orderId}\n💵 মোট প্রদেয় মূল্য: ৳${viewingOrder.totalAmount.toLocaleString('en-US')}\n🚀 আপনার অর্ডারটি খুব দ্রুত ডেলিভারি টিমকে হস্তান্তর করা হচ্ছে। আমাদের সাথে থাকার জন্য ধন্যবাদ!`;
+                                const smsText = `প্রিয় ${viewingOrder.customerName}, অভিনন্দন! সেরা ফ্যাশন হাউজ (Sera Fashion House) থেকে আপনার #${viewingOrder.orderId} নং অর্ডারটি সফলভাবে কনফার্ম করা হয়েছে।\n📦 অর্ডার আইডি: #${viewingOrder.orderId}\n💵 মোট প্রদেয় মূল্য: ৳${viewingOrder.totalAmount.toLocaleString('en-US')}\n🚀 আপনার অর্ডারটি খুব দ্রুত ডেলিভারি টিমকে হস্তান্তর করা হচ্ছে। আমাদের সাথে থাকার জন্য ধন্যবাদ!`;
                                 navigator.clipboard.writeText(smsText);
                                 setCopiedSmsText('confirm');
                                 setTimeout(() => setCopiedSmsText(null), 2500);
@@ -1802,7 +1802,7 @@ export default function AdminDashboard() {
                             </button>
                           </div>
                           <div className="p-3 bg-gray-50/70 rounded-xl border border-dashed border-gray-100 text-[10.5px] text-gray-600 leading-relaxed font-mono whitespace-pre-wrap select-all font-bold">
-                            {`প্রিয় ${viewingOrder.customerName}, অভিনন্দন! সেরা ফ্যাশন হাউস (Sera Fashion House) থেকে আপনার #${viewingOrder.orderId} নং অর্ডারটি সফলভাবে কনফার্ম করা হয়েছে।\n📦 অর্ডার আইডি: #${viewingOrder.orderId}\n💵 মোট প্রদেয় মূল্য: ৳${viewingOrder.totalAmount.toLocaleString('en-US')}\n🚀 আপনার অর্ডারটি খুব দ্রুত ডেলিভারি টিমকে হস্তান্তর করা হচ্ছে। আমাদের সাথে থাকার জন্য ধন্যবাদ!`}
+                            {`প্রিয় ${viewingOrder.customerName}, অভিনন্দন! সেরা ফ্যাশন হাউজ (Sera Fashion House) থেকে আপনার #${viewingOrder.orderId} নং অর্ডারটি সফলভাবে কনফার্ম করা হয়েছে।\n📦 অর্ডার আইডি: #${viewingOrder.orderId}\n💵 মোট প্রদেয় মূল্য: ৳${viewingOrder.totalAmount.toLocaleString('en-US')}\n🚀 আপনার অর্ডারটি খুব দ্রুত ডেলিভারি টিমকে হস্তান্তর করা হচ্ছে। আমাদের সাথে থাকার জন্য ধন্যবাদ!`}
                           </div>
                         </div>
                       </motion.div>
@@ -1858,7 +1858,7 @@ export default function AdminDashboard() {
                             <button
                               onClick={() => {
                                 const selectedReasonBangla = viewingOrder.cancelReason || "যোগাযোগ অসম্পূর্ণ বা কাস্টমার ইচ্ছা প্রকাশ করেননি";
-                                const smsText = `প্রিয় ${viewingOrder.customerName}, দুঃখিত! সেরা ফ্যাশন হাউস (Sera Fashion House) থেকে আপনার #${viewingOrder.orderId} নং অর্ডারটি বাতিল করা হয়েছে।\n❌ কারণ: ${selectedReasonBangla}\n\nযেকোনো প্রয়োজনে আমাদের পেইজে ইনবক্স করুন। ধন্যবাদ!`;
+                                const smsText = `প্রিয় ${viewingOrder.customerName}, দুঃখিত! সেরা ফ্যাশন হাউজ (Sera Fashion House) থেকে আপনার #${viewingOrder.orderId} নং অর্ডারটি বাতিল করা হয়েছে।\n❌ কারণ: ${selectedReasonBangla}\n\nযেকোনো প্রয়োজনে আমাদের পেইজে ইনবক্স করুন। ধন্যবাদ!`;
                                 navigator.clipboard.writeText(smsText);
                                 setCopiedSmsText('cancel');
                                 setTimeout(() => setCopiedSmsText(null), 2500);
@@ -1879,7 +1879,7 @@ export default function AdminDashboard() {
                             </button>
                           </div>
                           <div className="p-3 bg-gray-50/70 rounded-xl border border-dashed border-gray-100 text-[10.5px] text-gray-600 leading-relaxed font-mono whitespace-pre-wrap select-all font-bold">
-                            {`প্রিয় ${viewingOrder.customerName}, দুঃখিত! সেরা ফ্যাশন হাউস (Sera Fashion House) থেকে আপনার #${viewingOrder.orderId} নং অর্ডারটি বাতিল করা হয়েছে।\n❌ কারণ: ${viewingOrder.cancelReason || "যোগাযোগ অসম্পূর্ণ বা কাস্টমার ইচ্ছা প্রকাশ করেননি"}\n\nযেকোনো প্রয়োজনে আমাদের পেইজে ইনবক্স করুন। ধন্যবাদ!`}
+                            {`প্রিয় ${viewingOrder.customerName}, দুঃখিত! সেরা ফ্যাশন হাউজ (Sera Fashion House) থেকে আপনার #${viewingOrder.orderId} নং অর্ডারটি বাতিল করা হয়েছে।\n❌ কারণ: ${viewingOrder.cancelReason || "যোগাযোগ অসম্পূর্ণ বা কাস্টমার ইচ্ছা প্রকাশ করেননি"}\n\nযেকোনো প্রয়োজনে আমাদের পেইজে ইনবক্স করুন। ধন্যবাদ!`}
                           </div>
                         </div>
                       </motion.div>
@@ -2472,7 +2472,7 @@ export default function AdminDashboard() {
 
                 <h2 className="text-xl font-black text-[#1a1c2e] mb-2">Customer Welcome Gift</h2>
                 <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest leading-relaxed mb-8">
-                  সেরা ফ্যাশন হাউসের পক্ষ থেকে কাস্টমারের জন্য বিশেষ গিফট কার্ড
+                  সেরা ফ্যাশন হাউজের পক্ষ থেকে কাস্টমারের জন্য বিশেষ গিফট কার্ড
                 </p>
 
                 {/* Card Preview */}
@@ -2497,7 +2497,7 @@ export default function AdminDashboard() {
                   <div className="pt-14 px-12 pb-10 flex justify-between items-start z-10">
                     <div className="text-left">
                       <h3 className="text-3xl font-serif font-bold tracking-tight text-white leading-none">
-                        Sera Fashion <span className="text-rose-600 italic">House</span>
+                        Sera Fashion House
                       </h3>
                       <p className="text-[9px] font-black tracking-[0.6em] uppercase text-gray-500 mt-4">
                         COUTURE & EXCELLENCE
@@ -2555,7 +2555,7 @@ export default function AdminDashboard() {
                       <p className="text-[8px] font-serif italic text-gray-600">ID: SFH-2024-{Math.floor(Math.random() * 9000) + 1000}</p>
                     </div>
                     <div className="text-right flex flex-col items-end">
-                      <p className="text-3xl font-serif italic text-rose-600 leading-none mb-3">Sera Fashion</p>
+                      <p className="text-3xl font-serif italic text-rose-600 leading-none mb-3">Sera Fashion House</p>
                       <div className="flex items-center gap-2">
                         <div className="w-4 h-[0.5px] bg-gray-800" />
                         <p className="text-[8px] font-black text-gray-500 uppercase tracking-[0.4em]">INVITATION</p>
