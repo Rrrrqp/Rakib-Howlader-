@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Gift, Sparkles, X, CheckCircle, Copy, AlertCircle } from 'lucide-react';
+import { updateVisitorSpinInfo, logVisitorEvent } from '../services/trackingService';
 
 interface SpinWheelModalProps {
   setValue: (name: string, value: any) => void;
@@ -342,6 +343,18 @@ export default function SpinWheelModal({ setValue, watch, cartLength = 0 }: Spin
       // Persist locally
       localStorage.setItem('sera_wheel_has_spun', 'true');
       localStorage.setItem('sera_wheel_won_coupon', JSON.stringify(wonObject));
+
+      // Track session spin details in real-time Firestore database for admin lead generation
+      updateVisitorSpinInfo({
+        hasSpun: true,
+        wonCouponCode: chosenSector.code,
+        wonCouponLabel: chosenSector.labelBn,
+        wonCouponDiscount: chosenSector.discount,
+        customerName: spinName,
+        mobileNumber: spinPhone,
+      });
+
+      logVisitorEvent('click', 'spin_wheel_completed', `স্পিন হুইল ঘুরিয়েছেন এবং "${chosenSector.labelBn}" জিতেছেন 🎁`, 'checkout');
 
       // Apply to checkout form
       setValue('discount', chosenSector.discount);

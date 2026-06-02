@@ -117,4 +117,8 @@ export interface VisitorSession {
   events?: TrackingEvent[];
   createdAt: string;
   lastActiveAt: string;
+  hasSpun?: boolean;
+  wonCouponCode?: string;
+  wonCouponLabel?: string;
+  wonCouponDiscount?: number;
 }

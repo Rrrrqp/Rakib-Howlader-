@@ -20,6 +20,7 @@ import ProductManager from './ProductManager';
 import SettingsManager from './SettingsManager';
 import LiveVisitorTracker from './LiveVisitorTracker';
 import ReviewManager from './ReviewManager';
+import SpinWheelLeadsList from './SpinWheelLeadsList';
 import { Activity, MessageSquare } from 'lucide-react';
 
 export interface CourierStat {
@@ -273,7 +274,8 @@ export const getCustomerTrust = (
 
 
 export default function AdminDashboard() {
-  const [activeTab, setActiveTab] = useState<'orders' | 'products' | 'settings' | 'live_visitors' | 'reviews'>('orders');
+  const [activeTab, setActiveTab] = useState<'orders' | 'products' | 'settings' | 'live_visitors' | 'reviews' | 'spin_leads'>('orders');
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [orders, setOrders] = useState<Order[]>(() => {
     try {
       const cached = localStorage.getItem('cached_orders');
@@ -804,84 +806,357 @@ export default function AdminDashboard() {
 
   return (
     <div className="bg-[#f8faff] min-h-screen font-sans pb-24">
+      {/* Slide-out Left Sidebar Drawer */}
+      <AnimatePresence>
+        {isSidebarOpen && (
+          <>
+            {/* Backdrop Overlay */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsSidebarOpen(false)}
+              className="fixed inset-0 bg-gray-950/70 backdrop-blur-sm z-[100] cursor-pointer"
+            />
+
+            {/* Sidebar Drawer Panel */}
+            <motion.div
+              initial={{ x: '-100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '-100%' }}
+              transition={{ type: 'spring', damping: 25, stiffness: 220 }}
+              className="fixed left-0 top-0 bottom-0 w-[305px] bg-slate-900 border-r border-slate-800 text-white z-[110] shadow-2xl overflow-y-auto flex flex-col justify-between"
+            >
+              <div>
+                {/* Drawer Header */}
+                <div className="p-5 border-b border-slate-800 bg-slate-950 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="bg-rose-600 p-2.5 rounded-xl shadow-lg shadow-rose-900/20 text-white">
+                      <LayoutDashboard size={18} />
+                    </div>
+                    <div>
+                      <h3 className="text-xs font-black tracking-tight uppercase text-white font-sans leading-none">সেরা ফ্যাশন হাউস</h3>
+                      <p className="text-[9px] text-rose-400 font-extrabold uppercase tracking-widest mt-1">ADMIN CONTROL PANEL</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setIsSidebarOpen(false)}
+                    className="p-1.5 rounded-lg bg-slate-850 hover:bg-slate-700 text-slate-400 hover:text-white transition-all cursor-pointer"
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
+
+                {/* Subtitle / Action Info */}
+                <div className="p-4 bg-slate-950/40 border-b border-slate-800/60 text-left">
+                  <p className="text-[9px] text-slate-400 font-extrabold uppercase tracking-wider mb-1.5">ন্যাভিগেশন প্যানেল / Navigation Menu</p>
+                  <p className="text-[10px] text-rose-300 font-semibold bg-rose-950/40 px-3 py-1.5 rounded-xl border border-rose-500/15 leading-relaxed">
+                    💡 বাম দিকের এই প্যানেলটি ব্যবহার করে যেকোনো ট্যাবে ভিজিট করতে পারবেন।
+                  </p>
+                </div>
+
+                {/* Drawer Menu Items List */}
+                <div className="p-3 space-y-1 bg-slate-900">
+                  {/* Option 1: Orders (অর্ডারস) */}
+                  <button
+                    onClick={() => {
+                      setActiveTab('orders');
+                      setIsSidebarOpen(false);
+                    }}
+                    className={`w-full flex items-center justify-between p-3.5 rounded-xl text-xs font-extrabold transition-all group cursor-pointer ${
+                      activeTab === 'orders'
+                        ? 'bg-gradient-to-r from-rose-600 to-rose-700 text-white shadow-md shadow-rose-900/30'
+                        : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <ListChecks size={16} className={activeTab === 'orders' ? 'text-white' : 'text-rose-500 group-hover:scale-110 transition-transform shrink-0'} />
+                      <div className="text-left">
+                        <span className="block font-sans text-xs">১. অর্ডার তালিকা (Orders)</span>
+                        <span className="block text-[8px] opacity-70 font-semibold tracking-wide">ম্যানেজ ও কাস্টমার ট্র্যাকিং</span>
+                      </div>
+                    </div>
+                    <span className="text-[9px] bg-slate-950/40 text-rose-300 px-1.5 py-0.5 rounded font-mono font-bold shrink-0">
+                      {orders.length}
+                    </span>
+                  </button>
+
+                  {/* Option 2: Products (পণ্য সমূহ) */}
+                  <button
+                    onClick={() => {
+                      setActiveTab('products');
+                      setIsSidebarOpen(false);
+                    }}
+                    className={`w-full flex items-center justify-between p-3.5 rounded-xl text-xs font-extrabold transition-all group cursor-pointer ${
+                      activeTab === 'products'
+                        ? 'bg-gradient-to-r from-rose-600 to-rose-700 text-white shadow-md'
+                        : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <Grid size={16} className={activeTab === 'products' ? 'text-white' : 'text-rose-500 group-hover:scale-110 transition-transform shrink-0'} />
+                      <div className="text-left">
+                        <span className="block font-sans text-xs">২. পণ্য তালিকা (Products)</span>
+                        <span className="block text-[8px] opacity-70 font-semibold tracking-wide">ইনভেন্টরি, সাইজ ও স্টক</span>
+                      </div>
+                    </div>
+                  </button>
+
+                  {/* Option 3: Settings (সেটিং) */}
+                  <button
+                    onClick={() => {
+                      setActiveTab('settings');
+                      setIsSidebarOpen(false);
+                    }}
+                    className={`w-full flex items-center justify-between p-3.5 rounded-xl text-xs font-extrabold transition-all group cursor-pointer ${
+                      activeTab === 'settings'
+                        ? 'bg-gradient-to-r from-rose-600 to-rose-700 text-white shadow-md'
+                        : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <Settings size={16} className={activeTab === 'settings' ? 'text-white' : 'text-rose-500 group-hover:scale-110 transition-transform shrink-0'} />
+                      <div className="text-left">
+                        <span className="block font-sans text-xs">৩. ওয়েবসাইট সেটিং (Settings)</span>
+                        <span className="block text-[8px] opacity-70 font-semibold tracking-wide">নাম্বার, পিক্সেল ও কুরিয়ার কনফিগ</span>
+                      </div>
+                    </div>
+                  </button>
+
+                  {/* Option 4: Live Track (লাইভ ট্র্যাকার) */}
+                  <button
+                    onClick={() => {
+                      setActiveTab('live_visitors');
+                      setIsSidebarOpen(false);
+                    }}
+                    className={`w-full flex items-center justify-between p-3.5 rounded-xl text-xs font-extrabold transition-all group relative cursor-pointer ${
+                      activeTab === 'live_visitors'
+                        ? 'bg-gradient-to-r from-emerald-600 to-emerald-700 text-white shadow-md'
+                        : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <Activity size={16} className={`${activeTab === 'live_visitors' ? 'text-white' : 'text-emerald-500'} group-hover:scale-110 transition-transform shrink-0`} />
+                      <div className="text-left">
+                        <span className="block font-sans text-xs">৪. লাইভ ট্র্যাকার (Live Activity)</span>
+                        <span className="block text-[8px] opacity-70 font-semibold tracking-wide">কে কখন কোন ড্রেস দেখছে</span>
+                      </div>
+                    </div>
+                    <span className="flex h-2 w-2 relative shrink-0">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                    </span>
+                  </button>
+
+                  {/* Option 5: Reviews (রিভিউ) */}
+                  <button
+                    onClick={() => {
+                      setActiveTab('reviews');
+                      setIsSidebarOpen(false);
+                    }}
+                    className={`w-full flex items-center justify-between p-3.5 rounded-xl text-xs font-extrabold transition-all group cursor-pointer ${
+                      activeTab === 'reviews'
+                        ? 'bg-gradient-to-r from-rose-600 to-rose-700 text-white shadow-md'
+                        : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <MessageSquare size={16} className={activeTab === 'reviews' ? 'text-white' : 'text-rose-500 group-hover:scale-110 transition-transform shrink-0'} />
+                      <div className="text-left">
+                        <span className="block font-sans text-xs">৫. রিভিউ ও রেটিং (Reviews)</span>
+                        <span className="block text-[8px] opacity-70 font-semibold tracking-wide">মন্তব্য ও স্ক্রিনশট রিলিজ</span>
+                      </div>
+                    </div>
+                  </button>
+
+                  {/* Option 6: Spin Leads (স্পিন হুইল কাস্টমার লিড) */}
+                  <button
+                    onClick={() => {
+                      setActiveTab('spin_leads');
+                      setIsSidebarOpen(false);
+                    }}
+                    className={`w-full flex items-center justify-between p-3.5 rounded-xl text-xs font-extrabold transition-all group cursor-pointer ${
+                      activeTab === 'spin_leads'
+                        ? 'bg-gradient-to-r from-purple-600 to-purple-700 text-white shadow-md'
+                        : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <Gift size={16} className={activeTab === 'spin_leads' ? 'text-white' : 'text-purple-400 group-hover:scale-110 transition-transform shrink-0'} />
+                      <div className="text-left">
+                        <span className="block font-sans text-xs">৬. স্পিন কাস্টমার লিড (Spin Leads)</span>
+                        <span className="block text-[8px] opacity-70 font-semibold tracking-wide">স্পিন ঘুরিয়ে পালিয়ে যাওয়া গ্রাহক</span>
+                      </div>
+                    </div>
+                    <span className="flex h-2.5 w-2.5 relative shrink-0">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-purple-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-purple-500"></span>
+                    </span>
+                  </button>
+
+                  <div className="h-px bg-slate-800/80 my-3" />
+
+                  <p className="text-[9px] text-slate-500 font-extrabold uppercase tracking-wider px-3.5 mb-1.5 text-left">অ্যাকশন ও কাস্টমার টুলস / Actions</p>
+
+                  {/* Option 7: Create Cash Memo (ক্যাশ মেমো তৈরি) */}
+                  <button
+                    onClick={() => {
+                      setIsCashMemoOpen(true);
+                      setIsSidebarOpen(false);
+                    }}
+                    className="w-full flex items-center justify-between p-3.5 rounded-xl text-xs font-extrabold text-slate-300 hover:bg-slate-850 hover:text-white transition-all group cursor-pointer text-left"
+                  >
+                    <div className="flex items-center gap-3">
+                      <Receipt size={16} className="text-amber-500 group-hover:scale-110 transition-transform shrink-0" />
+                      <div className="text-left">
+                        <span className="block font-sans text-xs text-slate-200">৭. ক্যাশ মেমো (Cash Memo)</span>
+                        <span className="block text-[8px] text-amber-500 font-semibold tracking-wide">ম্যানুয়াল ক্যাশ মেমো জেনারেটর</span>
+                      </div>
+                    </div>
+                  </button>
+
+                  {/* Option 8: Welcome Gift (ওয়েলকাম গিফট) */}
+                  <button
+                    onClick={() => {
+                      setIsWelcomeGiftOpen(true);
+                      setIsSidebarOpen(false);
+                    }}
+                    className="w-full flex items-center justify-between p-3.5 rounded-xl text-xs font-extrabold text-slate-300 hover:bg-slate-850 hover:text-white transition-all group cursor-pointer text-left"
+                  >
+                    <div className="flex items-center gap-3">
+                      <Gift size={16} className="text-rose-500 group-hover:scale-110 transition-transform shrink-0" />
+                      <div className="text-left">
+                        <span className="block font-sans text-xs text-slate-200">৮. ওয়েলকাম গিফট (Welcome Gift)</span>
+                        <span className="block text-[8px] text-rose-500 font-semibold tracking-wide">নতুন কাস্টমার কুপন বার্তা</span>
+                      </div>
+                    </div>
+                  </button>
+                </div>
+              </div>
+
+              {/* Drawer Footer info */}
+              <div className="p-4 border-t border-slate-800 bg-slate-950 text-center space-y-1">
+                <span className="text-[10px] text-slate-400 font-bold block">Sera Fashion House Admin v2.5</span>
+                <span className="text-[8px] text-slate-600 font-bold block uppercase tracking-wider">🔒 RESTRICTED SYSTEMS HUB</span>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
       {/* Top Navigation Bar */}
-      <nav className="bg-brand-charcoal text-white px-4 py-3 sticky top-0 z-50 shadow-lg">
+      <nav className="bg-brand-charcoal text-white px-4 py-3.5 sticky top-0 z-50 shadow-lg">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="bg-rose-600 p-2 rounded-xl">
-              <LayoutDashboard size={20} />
+          
+          {/* Logo Section (Clicking handles sidebar open) */}
+          <div 
+            onClick={() => setIsSidebarOpen(true)}
+            className="flex items-center gap-3 cursor-pointer group hover:bg-white/5 p-1.5 rounded-2xl active:scale-95 transition-all select-none"
+            title="মেনু অপশন দেখতে এখানে চাপুন"
+          >
+            <div className="bg-rose-600 p-2 rounded-xl group-hover:bg-rose-500 transition-colors shadow-md shadow-rose-900/10">
+              <LayoutDashboard size={20} className="group-hover:rotate-12 transition-transform" />
             </div>
-            <div>
-              <h1 className="text-sm font-black tracking-tight leading-none">Sera Fashion House Admin <span className="bg-rose-600 text-[8px] px-1 rounded uppercase align-middle ml-1">PRO</span></h1>
-              <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-1">Management Suite</p>
+            <div className="text-left">
+              <h1 className="text-sm font-black tracking-tight leading-none flex items-center gap-1">
+                Sera Fashion House Admin 
+                <span className="bg-rose-600 text-[8px] px-1 rounded uppercase align-middle ml-1">PRO</span>
+                <ChevronDown size={12} className="text-gray-400 group-hover:text-amber-400 mt-0.5 animate-bounce" />
+              </h1>
+              <p className="text-[9px] text-rose-450 font-bold uppercase tracking-widest mt-1.5 group-hover:text-rose-400 transition-colors">অপশনসমূহ দেখতে চাপুন ⚡</p>
             </div>
           </div>
 
-          <div className="flex bg-white/5 p-1 rounded-2xl border border-white/10 mx-6">
+          {/* Desktop Only Horizontal Bar (hidden on screens smaller than lg to prevent overlap/wrapping) */}
+          <div className="hidden lg:flex bg-white/5 p-1 rounded-2xl border border-white/10 mx-6">
             <button 
               onClick={() => setActiveTab('orders')}
-              className={`flex items-center gap-2 px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'orders' ? 'bg-rose-600 text-white shadow-lg' : 'text-gray-400 hover:text-white'}`}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'orders' ? 'bg-rose-600 text-white shadow-lg' : 'text-gray-400 hover:text-white'}`}
             >
-              <ListChecks size={14} />
+              <ListChecks size={13} />
               Orders
             </button>
             <button 
               onClick={() => setActiveTab('products')}
-              className={`flex items-center gap-2 px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'products' ? 'bg-rose-600 text-white shadow-lg' : 'text-gray-400 hover:text-white'}`}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'products' ? 'bg-rose-600 text-white shadow-lg' : 'text-gray-400 hover:text-white'}`}
             >
-              <Grid size={14} />
+              <Grid size={13} />
               Products
             </button>
             <button 
               onClick={() => setActiveTab('settings')}
-              className={`flex items-center gap-2 px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'settings' ? 'bg-rose-600 text-white shadow-lg' : 'text-gray-400 hover:text-white'}`}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'settings' ? 'bg-rose-600 text-white shadow-lg' : 'text-gray-400 hover:text-white'}`}
             >
-              <Settings size={14} />
+              <Settings size={13} />
               Settings
             </button>
             <button 
               onClick={() => setActiveTab('live_visitors')}
-              className={`flex items-center gap-2 px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all relative ${activeTab === 'live_visitors' ? 'bg-emerald-600 text-white shadow-lg' : 'text-gray-400 hover:text-white'}`}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all relative ${activeTab === 'live_visitors' ? 'bg-emerald-600 text-white shadow-lg' : 'text-gray-400 hover:text-white'}`}
             >
-              <Activity size={14} className={activeTab === 'live_visitors' ? 'animate-pulse' : ''} />
+              <Activity size={13} className={activeTab === 'live_visitors' ? 'animate-pulse' : ''} />
               Live Track
-              <span className="absolute -top-1 -right-1 flex h-2 w-2">
+              <span className="absolute -top-1 -right-1 flex h-1.5 w-1.5">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
               </span>
             </button>
             <button 
               onClick={() => setActiveTab('reviews')}
-              className={`flex items-center gap-2 px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'reviews' ? 'bg-rose-600 text-white shadow-lg' : 'text-gray-400 hover:text-white'}`}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'reviews' ? 'bg-rose-600 text-white shadow-lg' : 'text-gray-400 hover:text-white'}`}
             >
-              <MessageSquare size={14} />
+              <MessageSquare size={13} />
               Reviews
+            </button>
+            <button 
+              onClick={() => setActiveTab('spin_leads')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all relative ${activeTab === 'spin_leads' ? 'bg-[#9333ea] text-white shadow-lg' : 'text-gray-400 hover:text-white'}`}
+            >
+              <Gift size={13} className={activeTab === 'spin_leads' ? 'animate-bounce' : ''} />
+              Spin Leads
+              <span className="absolute -top-1 -right-1 flex h-1.5 w-1.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-purple-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-purple-500"></span>
+              </span>
             </button>
           </div>
 
-          <div className="hidden md:flex items-center gap-2">
+          {/* Desktop Only Extra action CTAs */}
+          <div className="hidden xl:flex items-center gap-2">
             <button 
               onClick={() => setIsCashMemoOpen(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-white/5 hover:bg-white/10 rounded-xl transition-all text-xs font-bold border border-white/10"
+              className="flex items-center gap-2 px-3.5 py-1.5 bg-white/5 hover:bg-white/10 rounded-xl transition-all text-xs font-bold border border-white/10"
             >
-              <Receipt size={14} className="text-rose-500" />
+              <Receipt size={13} className="text-amber-500" />
               CREATE CASH MEMO
             </button>
             <button 
               onClick={() => setIsWelcomeGiftOpen(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-rose-600 hover:bg-rose-700 rounded-xl transition-all text-xs font-bold shadow-lg shadow-rose-900/20"
+              className="flex items-center gap-2 px-3.5 py-1.5 bg-rose-600/90 hover:bg-rose-700 rounded-xl transition-all text-xs font-bold shadow-md shadow-rose-900/10"
             >
-              <Gift size={14} />
+              <Gift size={13} />
               WELCOME GIFT
             </button>
           </div>
 
-          <button 
-            onClick={() => window.location.reload()}
-            className="p-2 bg-rose-600/20 text-rose-500 rounded-xl hover:bg-rose-600 hover:text-white transition-all"
-          >
-            <LogOut size={20} />
-          </button>
+          {/* Mobile Right Quick Toggle triggers full sidebar */}
+          <div className="flex xl:hidden items-center gap-2">
+            <button
+              onClick={() => setIsSidebarOpen(true)}
+              className="flex lg:hidden items-center gap-1.5 px-3 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-[10px] font-black uppercase transition-all shadow-md shadow-rose-950/20 active:scale-95 select-none"
+            >
+              <LayoutDashboard size={12} className="animate-pulse" />
+              মেনু অপশন সমূহ
+            </button>
+            
+            <button 
+              onClick={() => window.location.reload()}
+              className="p-2 bg-rose-600/20 text-rose-500 rounded-xl hover:bg-rose-600 hover:text-white transition-all scale-90 sm:scale-100"
+              title="রিফ্রেশ ড্যাশবোর্ড"
+            >
+              <RefreshCw size={15} />
+            </button>
+          </div>
         </div>
       </nav>
 
@@ -896,6 +1171,8 @@ export default function AdminDashboard() {
           <LiveVisitorTracker />
         ) : activeTab === 'reviews' ? (
           <ReviewManager />
+        ) : activeTab === 'spin_leads' ? (
+          <SpinWheelLeadsList orders={orders} />
         ) : (
           <>
             {/* Marketing Analysis Section */}

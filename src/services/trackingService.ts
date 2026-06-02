@@ -80,17 +80,46 @@ export const startVisitorSession = async (): Promise<VisitorSession> => {
   // Return the existing data if we already computed it in memory
   if (currentSessionData) return currentSessionData;
 
+  // Read saved spin details from local storage to auto-sync with visitor session
+  const savedSpun = localStorage.getItem('sera_wheel_has_spun');
+  const savedCoupon = localStorage.getItem('sera_wheel_won_coupon');
+  
+  let localHasSpun = false;
+  let localWonCode = '';
+  let localWonLabel = '';
+  let localWonDiscount = 0;
+  let localCustomerName = 'Anonymous Visitor';
+  let localMobileNumber = '';
+
+  if (savedSpun === 'true' && savedCoupon) {
+    try {
+      const couponObj = JSON.parse(savedCoupon);
+      localHasSpun = true;
+      localWonCode = couponObj.code || '';
+      localWonLabel = couponObj.labelBn || couponObj.label || '';
+      localWonDiscount = Number(couponObj.discount) || 0;
+      if (couponObj.name) localCustomerName = couponObj.name;
+      if (couponObj.phone) localMobileNumber = couponObj.phone;
+    } catch (e) {
+      console.warn("Telemetry auto-sync of spin data error:", e);
+    }
+  }
+
   const defaultSession: VisitorSession = {
     sessionId,
     idSuffix,
-    customerName: 'Anonymous Visitor',
-    mobileNumber: '',
+    customerName: localCustomerName,
+    mobileNumber: localMobileNumber,
     deviceInfo: getDeviceInfo(),
-    currentStage: 'browsing_home',
-    currentStageLabel: 'হোম পেজ ভিজিট',
+    currentStage: localHasSpun ? 'product_view' : 'browsing_home',
+    currentStageLabel: localHasSpun ? `স্পিন অফার পেয়েছেন 🎁` : 'হোম পেজ ভিজিট',
     views: [],
     createdAt: now,
-    lastActiveAt: now
+    lastActiveAt: now,
+    hasSpun: localHasSpun ? true : undefined,
+    wonCouponCode: localWonCode || undefined,
+    wonCouponLabel: localWonLabel || undefined,
+    wonCouponDiscount: localWonDiscount || undefined
   };
 
   const setupHeartbeat = () => {
@@ -136,9 +165,39 @@ export const startVisitorSession = async (): Promise<VisitorSession> => {
     const docSnap = await getDoc(docRef);
     
     if (docSnap.exists()) {
-      currentSessionData = docSnap.data() as VisitorSession;
+      const existingData = docSnap.data() as VisitorSession;
+      currentSessionData = { ...existingData };
       currentSessionData.lastActiveAt = now;
-      await setDoc(docRef, cleanUndefined({ lastActiveAt: now }), { merge: true });
+
+      // Sync local spin data if not already present in Firestore
+      let hasUpdates = false;
+      const syncUpdates: any = { lastActiveAt: now };
+
+      if (localHasSpun && !existingData.hasSpun) {
+        currentSessionData.hasSpun = true;
+        currentSessionData.wonCouponCode = localWonCode;
+        currentSessionData.wonCouponLabel = localWonLabel;
+        currentSessionData.wonCouponDiscount = localWonDiscount;
+        syncUpdates.hasSpun = true;
+        syncUpdates.wonCouponCode = localWonCode;
+        syncUpdates.wonCouponLabel = localWonLabel;
+        syncUpdates.wonCouponDiscount = localWonDiscount;
+        hasUpdates = true;
+      }
+
+      if (localCustomerName && localCustomerName !== 'Anonymous Visitor' && (!existingData.customerName || existingData.customerName === 'Anonymous Visitor')) {
+        currentSessionData.customerName = localCustomerName;
+        syncUpdates.customerName = localCustomerName;
+        hasUpdates = true;
+      }
+
+      if (localMobileNumber && !existingData.mobileNumber) {
+        currentSessionData.mobileNumber = localMobileNumber;
+        syncUpdates.mobileNumber = localMobileNumber;
+        hasUpdates = true;
+      }
+
+      await setDoc(docRef, cleanUndefined(syncUpdates), { merge: true });
     } else {
       currentSessionData = { ...defaultSession };
       await setDoc(docRef, cleanUndefined(currentSessionData));
@@ -322,6 +381,59 @@ export const updateVisitorCustomerInfo = async (info: {
       isOfflineTracking = true;
     } else {
       console.warn("Failed to update visitor contact info:", err);
+    }
+  }
+};
+
+// Update visitor spin information
+export const updateVisitorSpinInfo = async (spinData: {
+  hasSpun: boolean;
+  wonCouponCode: string;
+  wonCouponLabel: string;
+  wonCouponDiscount: number;
+  customerName?: string;
+  mobileNumber?: string;
+}) => {
+  if (!currentSessionData) {
+    await startVisitorSession();
+  }
+  if (!currentSessionData) return;
+
+  const now = new Date().toISOString();
+  currentSessionData.hasSpun = spinData.hasSpun;
+  currentSessionData.wonCouponCode = spinData.wonCouponCode;
+  currentSessionData.wonCouponLabel = spinData.wonCouponLabel;
+  currentSessionData.wonCouponDiscount = spinData.wonCouponDiscount;
+  if (spinData.customerName) {
+    currentSessionData.customerName = spinData.customerName;
+  }
+  if (spinData.mobileNumber) {
+    currentSessionData.mobileNumber = spinData.mobileNumber;
+  }
+  currentSessionData.lastActiveAt = now;
+
+  const updates: any = {
+    hasSpun: spinData.hasSpun,
+    wonCouponCode: spinData.wonCouponCode,
+    wonCouponLabel: spinData.wonCouponLabel,
+    wonCouponDiscount: spinData.wonCouponDiscount,
+    lastActiveAt: now,
+    ...(spinData.customerName && { customerName: spinData.customerName }),
+    ...(spinData.mobileNumber && { mobileNumber: spinData.mobileNumber })
+  };
+
+  if (isOfflineTracking) return;
+
+  try {
+    const { db } = await initializeFirebase();
+    if (!db) return;
+    const docRef = doc(db, 'visitor_sessions', currentSessionData.sessionId);
+    await setDoc(docRef, cleanUndefined(updates), { merge: true });
+  } catch (err) {
+    if (detectQuotaError(err)) {
+      isOfflineTracking = true;
+    } else {
+      console.warn("Failed to update visitor spin info:", err);
     }
   }
 };
