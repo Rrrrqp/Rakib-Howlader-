@@ -1,6 +1,6 @@
 import { initializeApp, getApps } from 'firebase/app';
 import { getAuth, signInAnonymously, GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
-import { initializeFirestore, getFirestore, doc, getDocFromServer } from 'firebase/firestore';
+import { initializeFirestore, getFirestore, doc, getDocFromServer, disableNetwork } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 import { getAnalytics, isSupported } from 'firebase/analytics';
 
@@ -20,14 +20,59 @@ let auth: any;
 let storage: any;
 let analytics: any = null;
 let initPromise: Promise<any> | null = null;
+let isQuotaExhausted = false;
+
+const getTodayString = () => new Date().toISOString().split('T')[0];
+
+export const checkIsQuotaExhausted = (): boolean => {
+  if (isQuotaExhausted) return true;
+  try {
+    const expiredDate = localStorage.getItem('firestore_quota_exhausted_date');
+    if (expiredDate === getTodayString()) {
+      isQuotaExhausted = true;
+      return true;
+    }
+  } catch (e) {}
+  return false;
+};
+
+export const markQuotaExhausted = () => {
+  if (isQuotaExhausted) return;
+  isQuotaExhausted = true;
+  try {
+    localStorage.setItem('firestore_quota_exhausted_date', getTodayString());
+  } catch (e) {}
+  console.log('Firestore quota has been marked as EXHAUSTED for today:', getTodayString());
+  
+  if (db) {
+    console.log('Halt background connections by calling disableNetwork for current DB instance');
+    disableNetwork(db).catch((err) => {
+      console.warn("Could not disable network for Firestore:", err);
+    });
+  }
+  
+  window.dispatchEvent(new Event('firestore_quota_exhausted'));
+};
 
 const testConnection = async (database: any) => {
+  if (checkIsQuotaExhausted()) return;
   try {
     // Attempt to read a non-existent doc to trigger connection check
     await getDocFromServer(doc(database, '_test_connection_', 'check'));
     console.log('Firebase connection test: SUCCESS (Backend reachable)');
   } catch (error: any) {
-    if (error.code === 'unavailable' || error.message?.includes('offline')) {
+    const errMsg = String(error.message || '').toLowerCase();
+    const errCode = String(error.code || '').toLowerCase();
+    if (
+      errCode === 'resource-exhausted' ||
+      errCode === 'quota-exceeded' ||
+      errMsg.includes('quota') ||
+      errMsg.includes('limit exceeded') ||
+      errMsg.includes('exhausted')
+    ) {
+      console.warn("Firestore Quota Limit exceeded active in testConnection. Triggering offline mode.");
+      markQuotaExhausted();
+    } else if (error.code === 'unavailable' || error.message?.includes('offline')) {
       console.error("Firebase connection test: FAILED. The backend is unreachable. Using Force Long Polling might help.");
     } else {
       // Permission denied or other errors are fine, they mean the backend is reached
@@ -37,9 +82,16 @@ const testConnection = async (database: any) => {
 };
 
 const initializeFirebase = async () => {
-  if (app && db && auth && storage) return { db, auth, storage, analytics };
+  const isExhausted = checkIsQuotaExhausted();
   
-  if (initPromise) return initPromise;
+  if (app && db && auth && storage) {
+    return { db: isExhausted ? null : db, auth, storage, analytics };
+  }
+  
+  if (initPromise) {
+    const result = await initPromise;
+    return { db: isExhausted ? null : result.db, auth: result.auth, storage: result.storage, analytics: result.analytics };
+  }
 
   initPromise = (async () => {
     try {
@@ -82,6 +134,10 @@ const initializeFirebase = async () => {
         db = getFirestore(app);
       }
 
+      if (isExhausted) {
+        disableNetwork(db).catch((e) => console.log("Silent startup disable network:", e));
+      }
+
       auth = getAuth(app);
       
       // Use storageBucket from config if available, otherwise let SDK resolve it
@@ -102,7 +158,9 @@ const initializeFirebase = async () => {
       }
       
       // Background connection test
-      testConnection(db);
+      if (!isExhausted) {
+        testConnection(db);
+      }
       
       (window as any).firebaseInstances = { db, auth, storage, analytics };
       return { db, auth, storage, analytics };
@@ -113,7 +171,8 @@ const initializeFirebase = async () => {
     }
   })();
 
-  return initPromise;
+  const res = await initPromise;
+  return { db: checkIsQuotaExhausted() ? null : res.db, auth: res.auth, storage: res.storage, analytics: res.analytics };
 };
 
 const getFirebaseAuth = async () => {

@@ -1,6 +1,6 @@
 import { collection, addDoc, getDocs, query, orderBy, doc, updateDoc, deleteDoc, where, limit } from 'firebase/firestore';
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
-import { initializeFirebase } from '../lib/firebase';
+import { initializeFirebase, markQuotaExhausted } from '../lib/firebase';
 import { Product } from '../types';
 
 enum OperationType {
@@ -71,6 +71,30 @@ export const uploadImage = async (file: File, onProgress?: (progress: number) =>
   });
 }
 
+function isQuotaOrNetworkError(error: any): boolean {
+  if (!error) return false;
+  const errMsg = String(error.message || error).toLowerCase();
+  const errCode = String(error.code || '').toLowerCase();
+  const isQuota = (
+    errCode === 'resource-exhausted' ||
+    errCode === 'quota-exceeded' ||
+    errCode === 'unavailable' ||
+    errCode === 'permission-denied' ||
+    errMsg.includes('quota') ||
+    errMsg.includes('resource-exhausted') ||
+    errMsg.includes('limit exceeded') ||
+    errMsg.includes('exhausted') ||
+    errMsg.includes('offline') ||
+    errMsg.includes('denied')
+  );
+  if (isQuota) {
+    try {
+      markQuotaExhausted();
+    } catch (e) {}
+  }
+  return isQuota;
+}
+
 export const createProduct = async (productData: Partial<Product>) => {
   const { db } = await initializeFirebase();
   const fullProduct = {
@@ -79,9 +103,29 @@ export const createProduct = async (productData: Partial<Product>) => {
     createdAt: new Date().toISOString(),
   };
 
+  const saveLocally = () => {
+    try {
+      const id = `prod-${Date.now()}`;
+      const newProduct = { id, ...fullProduct } as Product;
+      
+      const all = JSON.parse(localStorage.getItem('cached_products_all') || '[]');
+      localStorage.setItem('cached_products_all', JSON.stringify([newProduct, ...all]));
+      
+      if (newProduct.isActive) {
+        const active = JSON.parse(localStorage.getItem('cached_products_active') || '[]');
+        localStorage.setItem('cached_products_active', JSON.stringify([newProduct, ...active]));
+      }
+      
+      window.dispatchEvent(new Event('local_products_updated'));
+      return newProduct;
+    } catch (e) {
+      console.warn("Failed to create product locally:", e);
+      return { id: `prod-${Date.now()}`, ...fullProduct } as Product;
+    }
+  };
+
   if (!db) {
-    console.warn("Firebase not initialized.");
-    return null;
+    return saveLocally();
   }
 
   try {
@@ -94,6 +138,10 @@ export const createProduct = async (productData: Partial<Product>) => {
     }
     return { id: docRef.id, ...fullProduct };
   } catch (error) {
+    if (isQuotaOrNetworkError(error)) {
+      console.warn("Firestore error encountered on product creation, saving locally.", error);
+      return saveLocally();
+    }
     await handleFirebaseError(error, OperationType.WRITE, COLLECTION_NAME);
   }
 };
@@ -110,7 +158,6 @@ export const getAllProducts = async (onlyActive = false, forceRefresh = false): 
     console.warn("Failed to retrieve cached products:", e);
   }
 
-  // If we have cached products and forceRefresh is false, return immediately
   if (cachedData && cachedData.length > 0 && !forceRefresh) {
     return cachedData;
   }
@@ -128,7 +175,6 @@ export const getAllProducts = async (onlyActive = false, forceRefresh = false): 
     const snapshot = await getDocs(q);
     const products = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
     
-    // Save to local cache
     try {
       localStorage.setItem(cacheKey, JSON.stringify(products));
     } catch (e) {
@@ -143,37 +189,77 @@ export const getAllProducts = async (onlyActive = false, forceRefresh = false): 
 };
 
 export const updateProduct = async (id: string, data: Partial<Product>) => {
+  const saveLocally = () => {
+    try {
+      const all = JSON.parse(localStorage.getItem('cached_products_all') || '[]');
+      const updatedAll = all.map((p: any) => p.id === id ? { ...p, ...data } : p);
+      localStorage.setItem('cached_products_all', JSON.stringify(updatedAll));
+      
+      const active = JSON.parse(localStorage.getItem('cached_products_active') || '[]');
+      const updatedActive = active
+        .map((p: any) => p.id === id ? { ...p, ...data } : p)
+        .filter((p: any) => p.isActive !== false);
+      localStorage.setItem('cached_products_active', JSON.stringify(updatedActive));
+      
+      window.dispatchEvent(new Event('local_products_updated'));
+    } catch (e) {
+      console.warn("Failed to update product locally:", e);
+    }
+  };
+
   const { db } = await initializeFirebase();
-  if (!db) return;
+  if (!db) {
+    saveLocally();
+    return;
+  }
 
   try {
     const docRef = doc(db, COLLECTION_NAME, id);
     await updateDoc(docRef, data);
-    try {
-      localStorage.removeItem('cached_products_active');
-      localStorage.removeItem('cached_products_all');
-    } catch (e) {
-      console.warn("Failed to clear local cached products on update:", e);
-    }
+    saveLocally();
   } catch (error) {
-    await handleFirebaseError(error, OperationType.UPDATE, `${COLLECTION_NAME}/${id}`);
+    if (isQuotaOrNetworkError(error)) {
+      console.warn("Firestore error encountered on product update, saving locally.", error);
+      saveLocally();
+    } else {
+      await handleFirebaseError(error, OperationType.UPDATE, `${COLLECTION_NAME}/${id}`);
+    }
   }
 };
 
 export const deleteProduct = async (id: string) => {
+  const saveLocally = () => {
+    try {
+      const all = JSON.parse(localStorage.getItem('cached_products_all') || '[]');
+      const filteredAll = all.filter((p: any) => p.id !== id);
+      localStorage.setItem('cached_products_all', JSON.stringify(filteredAll));
+      
+      const active = JSON.parse(localStorage.getItem('cached_products_active') || '[]');
+      const filteredActive = active.filter((p: any) => p.id !== id);
+      localStorage.setItem('cached_products_active', JSON.stringify(filteredActive));
+      
+      window.dispatchEvent(new Event('local_products_updated'));
+    } catch (e) {
+      console.warn("Failed to delete product locally:", e);
+    }
+  };
+
   const { db } = await initializeFirebase();
-  if (!db) return;
+  if (!db) {
+    saveLocally();
+    return;
+  }
 
   try {
     const docRef = doc(db, COLLECTION_NAME, id);
     await deleteDoc(docRef);
-    try {
-      localStorage.removeItem('cached_products_active');
-      localStorage.removeItem('cached_products_all');
-    } catch (e) {
-      console.warn("Failed to clear local cached products on deletion:", e);
-    }
+    saveLocally();
   } catch (error) {
-    await handleFirebaseError(error, OperationType.DELETE, `${COLLECTION_NAME}/${id}`);
+    if (isQuotaOrNetworkError(error)) {
+      console.warn("Firestore error encountered on product deletion, saving locally.", error);
+      saveLocally();
+    } else {
+      await handleFirebaseError(error, OperationType.DELETE, `${COLLECTION_NAME}/${id}`);
+    }
   }
 };

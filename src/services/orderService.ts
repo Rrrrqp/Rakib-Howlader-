@@ -1,5 +1,5 @@
 import { collection, addDoc, getDocs, query, orderBy, doc, updateDoc, deleteDoc, onSnapshot } from 'firebase/firestore';
-import { initializeFirebase } from '../lib/firebase';
+import { initializeFirebase, markQuotaExhausted } from '../lib/firebase';
 import { Order, OrderStatus } from '../types';
 
 enum OperationType {
@@ -35,6 +35,30 @@ async function handleFirestoreError(error: unknown, operationType: OperationType
   throw new Error(JSON.stringify(errInfo));
 }
 
+function isQuotaOrNetworkError(error: any): boolean {
+  if (!error) return false;
+  const errMsg = String(error.message || error).toLowerCase();
+  const errCode = String(error.code || '').toLowerCase();
+  const isQuota = (
+    errCode === 'resource-exhausted' ||
+    errCode === 'quota-exceeded' ||
+    errCode === 'unavailable' ||
+    errCode === 'permission-denied' ||
+    errMsg.includes('quota') ||
+    errMsg.includes('resource-exhausted') ||
+    errMsg.includes('limit exceeded') ||
+    errMsg.includes('exhausted') ||
+    errMsg.includes('offline') ||
+    errMsg.includes('denied')
+  );
+  if (isQuota) {
+    try {
+      markQuotaExhausted();
+    } catch (e) {}
+  }
+  return isQuota;
+}
+
 export const createOrder = async (orderData: Partial<Order>) => {
   const { db } = await initializeFirebase();
   const orderId = `SERA-${Date.now().toString().slice(-6)}${Math.floor(Math.random() * 1000)}`;
@@ -45,19 +69,40 @@ export const createOrder = async (orderData: Partial<Order>) => {
     createdAt: new Date().toISOString(),
   };
 
-  if (!db) {
-    console.warn("Firebase not initialized. Saving to localStorage.");
+  const saveLocally = () => {
+    console.warn("Saving order to local storage (Fallback Mode).");
     const existing = JSON.parse(localStorage.getItem('sera_orders') || '[]');
     const newOrder = { id: orderId, ...fullOrder };
-    localStorage.setItem('sera_orders', JSON.stringify([newOrder, ...existing]));
+    
+    const updated = [newOrder, ...existing];
+    localStorage.setItem('sera_orders', JSON.stringify(updated));
+    localStorage.setItem('cached_orders', JSON.stringify(updated));
+    
+    window.dispatchEvent(new Event('local_orders_updated'));
     return newOrder;
+  };
+
+  if (!db) {
+    return saveLocally();
   }
 
   const path = 'orders';
   try {
     const docRef = await addDoc(collection(db, path), fullOrder);
-    return { id: docRef.id, ...fullOrder };
+    const result = { id: docRef.id, ...fullOrder };
+    
+    try {
+      const cached = JSON.parse(localStorage.getItem('cached_orders') || '[]');
+      localStorage.setItem('cached_orders', JSON.stringify([result, ...cached]));
+      localStorage.setItem('sera_orders', JSON.stringify([result, ...cached]));
+    } catch (e) {}
+    
+    return result;
   } catch (error) {
+    if (isQuotaOrNetworkError(error)) {
+      console.warn("Firestore error encountered (quota/offline). Automatically falling back to local storage.", error);
+      return saveLocally();
+    }
     await handleFirestoreError(error, OperationType.WRITE, path);
   }
 };
@@ -65,7 +110,7 @@ export const createOrder = async (orderData: Partial<Order>) => {
 export const getAllOrders = async (forceRefresh = false): Promise<Order[]> => {
   let cachedOrders: Order[] = [];
   try {
-    const cached = localStorage.getItem('cached_orders');
+    const cached = localStorage.getItem('cached_orders') || localStorage.getItem('sera_orders');
     if (cached) {
       cachedOrders = JSON.parse(cached);
     }
@@ -73,16 +118,14 @@ export const getAllOrders = async (forceRefresh = false): Promise<Order[]> => {
     console.warn("Failed to retrieve cached orders:", e);
   }
 
-  // If cached data exists and we are not forcing a refresh, return cached data immediately
   if (cachedOrders && cachedOrders.length > 0 && !forceRefresh) {
     return cachedOrders;
   }
 
   const { db } = await initializeFirebase();
   if (!db) {
-    console.warn("Firebase not initialized. Reading from localStorage.");
-    const fallback = JSON.parse(localStorage.getItem('sera_orders') || '[]');
-    return fallback.length > 0 ? fallback : cachedOrders;
+    console.warn("Firebase not initialized. Reading from localStorage fallback.");
+    return cachedOrders;
   }
 
   const path = 'orders';
@@ -91,26 +134,40 @@ export const getAllOrders = async (forceRefresh = false): Promise<Order[]> => {
     const snapshot = await getDocs(q);
     const ordersList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order));
     
-    // Update local cache
     try {
       localStorage.setItem('cached_orders', JSON.stringify(ordersList));
+      localStorage.setItem('sera_orders', JSON.stringify(ordersList));
     } catch (cacheErr) {
       console.warn("Failed to cache orders to localStorage:", cacheErr);
     }
     
     return ordersList;
   } catch (error) {
-    await handleFirestoreError(error, OperationType.LIST, path);
+    console.warn("Failed to get orders from Firestore, falling back to local storage.", error);
     return cachedOrders;
   }
 };
 
 export const updateOrderStatus = async (id: string, status: string) => {
+  const saveLocally = () => {
+    try {
+      const existing = JSON.parse(localStorage.getItem('sera_orders') || '[]');
+      const updated = existing.map((o: any) => o.id === id || o.orderId === id ? { ...o, status } : o);
+      localStorage.setItem('sera_orders', JSON.stringify(updated));
+
+      const cached = JSON.parse(localStorage.getItem('cached_orders') || '[]');
+      const updatedCached = cached.map((o: any) => o.id === id || o.orderId === id ? { ...o, status } : o);
+      localStorage.setItem('cached_orders', JSON.stringify(updatedCached));
+
+      window.dispatchEvent(new Event('local_orders_updated'));
+    } catch (e) {
+      console.warn("Failed to update status locally:", e);
+    }
+  };
+
   const { db } = await initializeFirebase();
   if (!db) {
-    const existing = JSON.parse(localStorage.getItem('sera_orders') || '[]');
-    const updated = existing.map((o: any) => o.id === id ? { ...o, status } : o);
-    localStorage.setItem('sera_orders', JSON.stringify(updated));
+    saveLocally();
     return;
   }
 
@@ -118,17 +175,37 @@ export const updateOrderStatus = async (id: string, status: string) => {
   try {
     const docRef = doc(db, path, id);
     await updateDoc(docRef, { status });
+    saveLocally();
   } catch (error) {
-    await handleFirestoreError(error, OperationType.UPDATE, `${path}/${id}`);
+    if (isQuotaOrNetworkError(error)) {
+      console.warn("Encountered Firestore quota/network error on update status.", error);
+      saveLocally();
+    } else {
+      await handleFirestoreError(error, OperationType.UPDATE, `${path}/${id}`);
+    }
   }
 };
 
 export const updateOrder = async (id: string, data: Partial<Order>) => {
+  const saveLocally = () => {
+    try {
+      const existing = JSON.parse(localStorage.getItem('sera_orders') || '[]');
+      const updated = existing.map((o: any) => o.id === id || o.orderId === id ? { ...o, ...data } : o);
+      localStorage.setItem('sera_orders', JSON.stringify(updated));
+
+      const cached = JSON.parse(localStorage.getItem('cached_orders') || '[]');
+      const updatedCached = cached.map((o: any) => o.id === id || o.orderId === id ? { ...o, ...data } : o);
+      localStorage.setItem('cached_orders', JSON.stringify(updatedCached));
+
+      window.dispatchEvent(new Event('local_orders_updated'));
+    } catch (e) {
+      console.warn("Failed to update order locally:", e);
+    }
+  };
+
   const { db } = await initializeFirebase();
   if (!db) {
-    const existing = JSON.parse(localStorage.getItem('sera_orders') || '[]');
-    const updated = existing.map((o: any) => o.id === id ? { ...o, ...data } : o);
-    localStorage.setItem('sera_orders', JSON.stringify(updated));
+    saveLocally();
     return;
   }
 
@@ -136,29 +213,37 @@ export const updateOrder = async (id: string, data: Partial<Order>) => {
   try {
     const docRef = doc(db, path, id);
     await updateDoc(docRef, data);
+    saveLocally();
   } catch (error) {
-    await handleFirestoreError(error, OperationType.UPDATE, `${path}/${id}`);
+    if (isQuotaOrNetworkError(error)) {
+      console.warn("Encountered Firestore quota/network error on update order.", error);
+      saveLocally();
+    } else {
+      await handleFirestoreError(error, OperationType.UPDATE, `${path}/${id}`);
+    }
   }
 };
 
 export const deleteOrder = async (id: string) => {
-  // Proactively remove from cached_orders as well to keep UI cache in sync
-  try {
-    const cached = localStorage.getItem('cached_orders');
-    if (cached) {
-      const parsed = JSON.parse(cached);
-      const filtered = parsed.filter((o: any) => o.id !== id);
-      localStorage.setItem('cached_orders', JSON.stringify(filtered));
+  const saveLocally = () => {
+    try {
+      const existing = JSON.parse(localStorage.getItem('sera_orders') || '[]');
+      const updated = existing.filter((o: any) => o.id !== id && o.orderId !== id);
+      localStorage.setItem('sera_orders', JSON.stringify(updated));
+
+      const cached = JSON.parse(localStorage.getItem('cached_orders') || '[]');
+      const updatedCached = cached.filter((o: any) => o.id !== id && o.orderId !== id);
+      localStorage.setItem('cached_orders', JSON.stringify(updatedCached));
+
+      window.dispatchEvent(new Event('local_orders_updated'));
+    } catch (e) {
+      console.warn("Failed to delete order locally:", e);
     }
-  } catch (e) {
-    console.warn("Failed to update cached_orders in deleteOrder:", e);
-  }
+  };
 
   const { db } = await initializeFirebase();
   if (!db) {
-    const existing = JSON.parse(localStorage.getItem('sera_orders') || '[]');
-    const updated = existing.filter((o: any) => o.id !== id);
-    localStorage.setItem('sera_orders', JSON.stringify(updated));
+    saveLocally();
     return;
   }
 
@@ -166,18 +251,46 @@ export const deleteOrder = async (id: string) => {
   try {
     const docRef = doc(db, path, id);
     await deleteDoc(docRef);
+    saveLocally();
   } catch (error) {
-    await handleFirestoreError(error, OperationType.DELETE, `${path}/${id}`);
+    if (isQuotaOrNetworkError(error)) {
+      console.warn("Encountered Firestore quota/network error on delete order.", error);
+      saveLocally();
+    } else {
+      await handleFirestoreError(error, OperationType.DELETE, `${path}/${id}`);
+    }
   }
 };
 
 export const subscribeOrders = async (callback: (orders: Order[]) => void) => {
+  const getOfflineOrders = () => {
+    const c1 = localStorage.getItem('cached_orders');
+    const c2 = localStorage.getItem('sera_orders');
+    let orders: Order[] = [];
+    try {
+      if (c1) orders = JSON.parse(c1);
+      else if (c2) orders = JSON.parse(c2);
+    } catch (e) {}
+    return orders;
+  };
+
+  const triggerLocalOrders = () => {
+    callback(getOfflineOrders());
+  };
+
+  window.addEventListener('local_orders_updated', triggerLocalOrders);
+  const pollInterval = setInterval(triggerLocalOrders, 2000);
+
+  const cleanup = () => {
+    window.removeEventListener('local_orders_updated', triggerLocalOrders);
+    clearInterval(pollInterval);
+  };
+
   const { db } = await initializeFirebase();
   if (!db) {
     console.warn("Firebase not initialized. Cannot subscribe. Reading from localStorage.");
-    const fallback = JSON.parse(localStorage.getItem('sera_orders') || '[]');
-    callback(fallback);
-    return () => {};
+    callback(getOfflineOrders());
+    return cleanup;
   }
 
   const path = 'orders';
@@ -187,23 +300,26 @@ export const subscribeOrders = async (callback: (orders: Order[]) => void) => {
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const ordersList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order));
       
-      // Update local cache
       try {
         localStorage.setItem('cached_orders', JSON.stringify(ordersList));
+        localStorage.setItem('sera_orders', JSON.stringify(ordersList));
       } catch (cacheErr) {
         console.warn("Failed to cache subscription orders:", cacheErr);
       }
       
       callback(ordersList);
     }, (error) => {
-      handleFirestoreError(error, OperationType.LIST, path).catch(console.error);
+      console.warn("Firestore subscription error (often quota exceeded). Falling back fully to local listener.", error);
+      callback(getOfflineOrders());
     });
     
-    return unsubscribe;
+    return () => {
+      unsubscribe();
+      cleanup();
+    };
   } catch (err) {
     console.error("Failed to setup orders subscription:", err);
-    const fallback = JSON.parse(localStorage.getItem('cached_orders') || '[]');
-    callback(fallback);
-    return () => {};
+    callback(getOfflineOrders());
+    return cleanup;
   }
 };

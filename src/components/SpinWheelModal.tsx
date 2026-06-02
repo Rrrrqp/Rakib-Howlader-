@@ -484,7 +484,7 @@ export default function SpinWheelModal({ setValue, watch, cartLength = 0 }: Spin
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.9, y: 20 }}
               transition={{ type: "spring", duration: 0.5 }}
-              className="relative w-full max-w-[450px] bg-white rounded-3xl overflow-hidden shadow-2xl shadow-black/40 border border-gold-200 z-10 flex flex-col"
+              className="relative w-full max-w-[420px] mx-auto bg-white rounded-3xl overflow-hidden shadow-2xl shadow-black/40 border border-gold-200 z-10 flex flex-col"
             >
               {/* Gold Top Border */}
               <div className="h-2 bg-gradient-to-r from-yellow-500 via-[#e2136e] to-[#1C1917]" />
@@ -492,41 +492,42 @@ export default function SpinWheelModal({ setValue, watch, cartLength = 0 }: Spin
               {/* Close Button */}
               <button
                 onClick={handleClose}
-                className="absolute top-4 right-4 z-20 w-8 h-8 rounded-full bg-black/10 hover:bg-black/25 flex items-center justify-center text-gray-600 cursor-pointer transition-colors"
+                className="absolute top-3.5 right-3.5 z-25 w-8 h-8 rounded-full bg-black/10 hover:bg-black/25 flex items-center justify-center text-gray-650 cursor-pointer transition-colors"
+                style={{ WebkitTapHighlightColor: 'transparent' }}
               >
                 <X size={18} />
               </button>
 
-              {/* Content Panel */}
-              <div className="px-6 pt-8 pb-7 flex flex-col items-center select-none overflow-y-auto max-h-[85vh] no-scrollbar">
+              {/* Content Panel - height adaptive and fully scrollable when needed */}
+              <div className="px-4 py-6 sm:px-6 sm:pt-8 sm:pb-7 flex flex-col items-center select-none overflow-y-auto max-h-[82vh] md:max-h-[85vh] no-scrollbar">
                 
                 {!hasSpun ? (
                   /* 🎰 SPIN PANEL STATE */
                   <>
-                    <div className="inline-flex items-center gap-2 bg-rose-50 border border-rose-200 px-4 py-1.5 rounded-full shadow-sm mb-3">
-                      <Sparkles className="text-[#e2136e] animate-pulse" size={14} />
-                      <span className="text-[#e2136e] text-[11px] font-black tracking-widest uppercase">🎁 বিশেষ অফার</span>
+                    <div className="inline-flex items-center gap-1.5 bg-rose-50 border border-rose-100 px-3 py-1 rounded-full shadow-sm mb-2">
+                      <Sparkles className="text-[#e2136e] animate-pulse" size={12} />
+                      <span className="text-[#e2136e] text-[10px] font-black tracking-widest uppercase">🎁 বিশেষ অফার</span>
                     </div>
 
-                    <h2 className="text-[20px] font-serif font-black text-[#1C1917] tracking-tight text-center">
+                    <h2 className="text-[17px] sm:text-[20px] font-serif font-black text-[#1C1917] tracking-tight text-center leading-tight">
                       SPIN করুন ডিসকাউন্ট/গিফট জিতুন
                     </h2>
-                    <p className="text-[11px] font-bold text-gray-400 tracking-wide uppercase mt-1 mb-6 text-center">
+                    <p className="text-[10px] sm:text-[11px] font-bold text-gray-400 tracking-wide uppercase mt-0.5 mb-4 sm:mb-6 text-center">
                       আপনার তথ্য দিন এবং চান্স পান পুরস্কার জেতার!
                     </p>
 
-                    {/* WHEEL COMPONENT OUTLINE */}
-                    <div className="relative w-[280px] h-[280px] md:w-[320px] md:h-[320px] flex items-center justify-center mb-6">
+                    {/* WHEEL COMPONENT OUTLINE - hyper-responsive, avoiding viewport overflow */}
+                    <div className="relative w-[190px] h-[190px] xs:w-[220px] xs:h-[220px] sm:w-[260px] sm:h-[260px] md:w-[310px] md:h-[310px] flex items-center justify-center mb-4 sm:mb-6">
                       {/* Pointer Needle Frame */}
                       <div className="absolute top-0 z-30 drop-shadow-lg flex flex-col items-center">
-                        <div className="w-6 h-6 bg-yellow-400 rounded-full border-[3px] border-white flex items-center justify-center shadow-md">
-                          <div className="w-2.5 h-2.5 bg-[#e2136e] rounded-full" />
+                        <div className="w-5 h-5 sm:w-6 sm:h-6 bg-yellow-400 rounded-full border-[2px] sm:border-[3px] border-white flex items-center justify-center shadow-md">
+                          <div className="w-2 h-2 sm:w-2.5 sm:h-2.5 bg-[#e2136e] rounded-full" />
                         </div>
-                        <div className="w-0 h-0 border-l-[8px] border-l-transparent border-r-[8px] border-r-transparent border-t-[14px] border-t-yellow-400 -mt-1.5" />
+                        <div className="w-0 h-0 border-l-[6px] sm:border-l-[8px] border-r-[6px] sm:border-r-[8px] border-t-[10px] sm:border-t-[14px] border-t-yellow-400 -mt-1 sm:-mt-1.5" />
                       </div>
 
                       {/* Golden Outer Decorative Ring */}
-                      <div className="absolute inset-0 rounded-full border-8 border-yellow-400 p-1 bg-gradient-to-br from-yellow-300 via-amber-200 to-yellow-500 shadow-2xl flex items-center justify-center">
+                      <div className="absolute inset-0 rounded-full border-4 sm:border-8 border-yellow-400 p-0.5 sm:p-1 bg-gradient-to-br from-yellow-300 via-amber-200 to-yellow-500 shadow-2xl flex items-center justify-center">
                         {/* Interactive Rotating Pointer Frame */}
                         <div 
                           className="w-full h-full rounded-full overflow-hidden relative shadow-inner bg-stone-100"
@@ -571,55 +572,60 @@ export default function SpinWheelModal({ setValue, watch, cartLength = 0 }: Spin
                                     textAnchor="middle"
                                     dominantBaseline="central"
                                     transform={`rotate(${middleDeg} ${textX} ${textY})`}
-                                    className="font-serif tracking-tight select-none"
+                                    className="font-serif tracking-tight select-none font-black"
                                   >
                                     {sector.labelBn}
                                   </text>
                                 </g>
                               );
                             })}
-                          </svg>
 
-                          {/* Decorative Outer Pin dots around the wheel */}
-                          {Array.from({ length: 8 }).map((_, i) => (
-                            <div
-                              key={i}
-                              className="absolute w-2 h-2 bg-white rounded-full border border-gray-200 shadow-md"
-                              style={{
-                                top: '50%',
-                                left: '50%',
-                                transform: `translate(-50%, -50%) rotate(${i * 45}deg) translate(0, -145px)`,
-                              }}
-                            />
-                          ))}
+                            {/* Render responsive decorative pin dots INSIDE the SVG so they rescale 100% perfectly with container resizing */}
+                            {Array.from({ length: 8 }).map((_, i) => {
+                              const dotAngle = (i * 45 * Math.PI) / 180;
+                              const dotX = CX + 148 * Math.cos(dotAngle);
+                              const dotY = CY + 148 * Math.sin(dotAngle);
+                              return (
+                                <circle
+                                  key={i}
+                                  cx={dotX}
+                                  cy={dotY}
+                                  r="4.5"
+                                  fill="#ffffff"
+                                  stroke="#d4af37"
+                                  strokeWidth="1.5"
+                                />
+                              );
+                            })}
+                          </svg>
                         </div>
                       </div>
 
-                      {/* Luxurious Brand Center Logo overlay */}
-                      <div className="absolute w-14 h-14 rounded-full bg-white border-2 border-yellow-400 p-0.5 shadow-xl flex items-center justify-center z-10 select-none pointer-events-none">
-                        <div className="w-full h-full rounded-full bg-[#1C1917] flex flex-col items-center justify-center text-[8px] font-serif font-bold text-yellow-300 tracking-tighter uppercase leading-none">
+                      {/* Luxurious Brand Center Logo overlay - responsive */}
+                      <div className="absolute w-10 h-10 xs:w-12 xs:h-12 sm:w-14 sm:h-14 rounded-full bg-white border-2 border-yellow-400 p-0.5 shadow-xl flex items-center justify-center z-10 select-none pointer-events-none">
+                        <div className="w-full h-full rounded-full bg-[#1C1917] flex flex-col items-center justify-center text-[7px] sm:text-[8px] font-serif font-bold text-yellow-300 tracking-tighter uppercase leading-none">
                           <span>SERA</span>
-                          <span className="text-[5px] text-gray-300 mt-0.5 font-sans italic">COUTURE</span>
+                          <span className="text-[4px] sm:text-[5px] text-gray-300 mt-0.5 font-sans italic">COUTURE</span>
                         </div>
                       </div>
                     </div>
 
                     {/* INPUTS SUBMITS FORM BLOCK */}
-                    <div className="w-full space-y-4">
+                    <div className="w-full space-y-3 sm:space-y-4">
                       <div>
-                        <label className="block text-[11px] font-black text-gray-500 uppercase tracking-widest mb-1.5">আপনার নাম <span className="text-red-500">*</span></label>
+                        <label className="block text-[10px] sm:text-[11px] font-black text-gray-500 uppercase tracking-widest mb-1">আপনার নাম <span className="text-red-500">*</span></label>
                         <input
                           type="text"
                           disabled={isSpinning}
                           placeholder="আপনার পুরো নাম লিখুন"
                           value={spinName}
                           onChange={(e) => setSpinName(e.target.value)}
-                          className="w-full px-5 py-3.5 rounded-2xl bg-gray-50 border border-gray-100 outline-none text-sm font-semibold text-[#1C1917] focus:ring-2 focus:ring-rose-500/10 focus:border-rose-400 transition-all font-sans"
+                          className="w-full px-4 py-2.5 sm:px-5 sm:py-3.5 rounded-xl sm:rounded-2xl bg-gray-50 border border-gray-150 outline-none text-xs sm:text-sm font-semibold text-[#1C1917] focus:ring-4 focus:ring-rose-500/10 focus:border-[#e2136e] transition-all font-sans placeholder-gray-400"
                         />
                       </div>
 
                       <div>
-                        <label className="block text-[11px] font-black text-gray-500 uppercase tracking-widest mb-1.5">ফোন নাম্বার <span className="text-red-500">*</span></label>
+                        <label className="block text-[10px] sm:text-[11px] font-black text-gray-500 uppercase tracking-widest mb-1">ফোন নাম্বার <span className="text-red-500">*</span></label>
                         <input
                           type="tel"
                           maxLength={11}
@@ -627,13 +633,13 @@ export default function SpinWheelModal({ setValue, watch, cartLength = 0 }: Spin
                           placeholder="০১xxxxxxxxx"
                           value={spinPhone}
                           onChange={(e) => setSpinPhone(e.target.value.replace(/\D/g, ''))}
-                          className="w-full px-5 py-3.5 rounded-2xl bg-gray-50 border border-gray-100 outline-none text-sm font-semibold text-[#1C1917] tracking-wider focus:ring-2 focus:ring-rose-500/10 focus:border-rose-400 transition-all font-sans"
+                          className="w-full px-4 py-2.5 sm:px-5 sm:py-3.5 rounded-xl sm:rounded-2xl bg-gray-50 border border-gray-150 outline-none text-xs sm:text-sm font-semibold text-[#1C1917] tracking-wider focus:ring-4 focus:ring-rose-500/10 focus:border-[#e2136e] transition-all font-sans placeholder-gray-400"
                         />
                       </div>
 
                       {validationError && (
-                        <div className="flex items-center gap-2 text-rose-600 text-[11px] font-bold p-3 bg-rose-50 rounded-xl leading-snug">
-                          <AlertCircle size={15} />
+                        <div className="flex items-center gap-1.5 text-rose-600 text-[10px] sm:text-[11px] font-bold p-2.5 bg-rose-50 rounded-xl leading-snug border border-rose-100">
+                          <AlertCircle size={13} className="shrink-0" />
                           <span>{validationError}</span>
                         </div>
                       )}
@@ -641,16 +647,17 @@ export default function SpinWheelModal({ setValue, watch, cartLength = 0 }: Spin
                       <button
                         onClick={handleSpinNow}
                         disabled={isSpinning}
-                        className="w-full py-4.5 bg-[#e2136e] text-white rounded-2xl font-black text-base shadow-xl shadow-rose-200/50 hover:bg-rose-700 active:scale-[0.98] transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="w-full py-3.5 sm:py-4 bg-[#e2136e] text-white rounded-xl sm:rounded-2xl font-black text-sm sm:text-base shadow-lg shadow-rose-200 hover:bg-rose-700 active:scale-[0.98] transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                        style={{ WebkitTapHighlightColor: 'transparent' }}
                       >
-                        <Sparkles size={16} />
+                        <Sparkles size={15} />
                         <span>{isSpinning ? 'স্পিন হচ্ছে...' : '✨ স্পিন করুন'}</span>
                       </button>
                     </div>
                   </>
                 ) : (
-                  /* 🎉 SUCCESS STATUS PANEL */
-                  <div className="w-full text-center space-y-6 pt-4 relative">
+                  /* 🎉 SUCCESS STATUS PANEL - optimized for mobile heights */
+                  <div className="w-full text-center space-y-4 sm:space-y-6 pt-2 sm:pt-4 relative">
                     {/* Confetti Explosion Shower */}
                     {particles.map((p) => (
                       <motion.div
@@ -667,61 +674,63 @@ export default function SpinWheelModal({ setValue, watch, cartLength = 0 }: Spin
                       />
                     ))}
 
-                    <div className="inline-flex items-center justify-center bg-emerald-50 border border-emerald-200 p-4 rounded-full shadow-inner mx-auto mb-2">
-                      <Gift className="text-emerald-500 animate-bounce" size={40} />
+                    <div className="inline-flex items-center justify-center bg-emerald-50 border border-emerald-100 p-3 sm:p-4 rounded-full shadow-inner mx-auto mb-1">
+                      <Gift className="text-emerald-500 animate-bounce" size={32} />
                     </div>
 
-                    <div className="space-y-1">
-                      <h3 className="text-2xl font-serif font-black text-emerald-600">অভিনন্দন!</h3>
-                      <p className="text-[12px] font-bold text-gray-500">
+                    <div className="space-y-0.5">
+                      <h3 className="text-xl sm:text-2xl font-serif font-black text-emerald-600">অভিনন্দন!</h3>
+                      <p className="text-[11px] sm:text-[12px] font-bold text-gray-500">
                         <span className="text-[#1C1917]">{wonCoupon?.name}</span>, আপনি জিতেছেন!
                       </p>
                     </div>
 
-                    <div className="bg-brand-cream/60 rounded-3xl p-6 border-2 border-emerald-100 shadow-md flex flex-col items-center gap-4">
-                      <div className="text-lg font-serif font-black text-[#1C1917] tracking-tight bg-white px-5 py-2 rounded-full border border-gray-100 shadow-sm">
+                    <div className="bg-brand-cream/60 rounded-2xl sm:rounded-3xl p-4 sm:p-6 border-2 border-emerald-100 shadow-sm flex flex-col items-center gap-3 sm:gap-4">
+                      <div className="text-base sm:text-lg font-serif font-black text-[#1C1917] tracking-tight bg-white px-4 py-1.5 sm:px-5 sm:py-2 rounded-full border border-gray-100 shadow-sm">
                         {wonCoupon?.labelBn}
                       </div>
 
-                      <p className="text-[11px] font-semibold text-gray-500 max-w-xs">
+                      <p className="text-[10px] sm:text-[11px] font-semibold text-gray-400 max-w-xs leading-snug">
                         যেকোনো প্রোডাক্ট অর্ডার করে ফ্রি বা ডিসকাউন্ট কুপনটি বুঝে নিন!
                       </p>
 
                       {/* Dashed Coupon Card */}
-                      <div className="w-full border-2 border-dashed border-emerald-300 rounded-2xl p-4 bg-emerald-50/20 relative overflow-hidden">
-                        <span className="text-[9px] uppercase font-black text-gray-400 tracking-wider">কুপন কোড (Coupon Code)</span>
-                        <p className="text-3xl font-serif font-black text-emerald-700 tracking-widest my-2 select-all drop-shadow-sm uppercase">
+                      <div className="w-full border-2 border-dashed border-emerald-300 rounded-xl sm:rounded-2xl p-3 sm:p-4 bg-emerald-50/20 relative overflow-hidden">
+                        <span className="text-[8px] sm:text-[9px] uppercase font-black text-gray-400 tracking-wider">কুপন কোড (Coupon Code)</span>
+                        <p className="text-2xl sm:text-3xl font-serif font-black text-emerald-700 tracking-widest my-1 sm:my-2 select-all drop-shadow-sm uppercase">
                           {wonCoupon?.code}
                         </p>
-                        <p className="text-[9px] font-bold text-gray-400 mt-1">
+                        <p className="text-[8px] sm:text-[9px] font-bold text-gray-400 leading-normal">
                           অর্ডারে এই ডিসকাউন্ট কোডটি স্বয়ংক্রিয়ভাবে প্রবেশ করানো হয়েছে!
                         </p>
 
-                        <div className="mt-4 pt-3 border-t border-dashed border-emerald-100 flex flex-col gap-1 items-center">
-                          <p className="text-[9px] font-black text-[#1C1917] uppercase tracking-wider">ভেরিফাইড ফোন নম্বর</p>
+                        <div className="mt-3 pt-2 sm:mt-4 sm:pt-3 border-t border-dashed border-emerald-100 flex flex-col gap-0.5 items-center">
+                          <p className="text-[8px] sm:text-[9px] font-black text-[#1C1917] uppercase tracking-wider">ভেরিফাইড ফোন নম্বর</p>
                           <p className="text-xs font-mono font-black text-emerald-800 tracking-widest">{wonCoupon?.phone}</p>
                         </div>
                       </div>
                     </div>
 
-                    <div className="space-y-3">
+                    <div className="space-y-2 sm:space-y-3">
                       <button
                         onClick={copyCouponCode}
-                        className="w-full py-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl font-black text-sm transition-all flex items-center justify-center gap-2 shadow-lg shadow-emerald-100 cursor-pointer"
+                        className="w-full py-3.5 sm:py-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl sm:rounded-2xl font-black text-xs sm:text-sm transition-all flex items-center justify-center gap-2 shadow-lg shadow-emerald-100 cursor-pointer"
+                        style={{ WebkitTapHighlightColor: 'transparent' }}
                       >
-                        <Copy size={16} />
+                        <Copy size={14} />
                         <span>{copied ? 'কোড কপি করা হয়েছে!' : 'কুপন কোড কপি করুন'}</span>
                       </button>
 
                       <button
                         onClick={handleClose}
-                        className="w-full py-3 bg-gray-100 hover:bg-gray-200 text-[#1C1917] rounded-xl font-bold text-xs transition-all cursor-pointer"
+                        className="w-full py-2.5 sm:py-3 bg-gray-100 hover:bg-gray-200 text-[#1C1917] rounded-lg sm:rounded-xl font-bold text-[11px] sm:text-xs transition-all cursor-pointer"
+                        style={{ WebkitTapHighlightColor: 'transparent' }}
                       >
                         বন্ধ করুন
                       </button>
                     </div>
 
-                    <p className="text-[10px] font-black text-gray-400 tracking-wide">
+                    <p className="text-[9px] sm:text-[10px] font-black text-gray-400 tracking-wide">
                       পছন্দের যে কোনো প্রোডাক্ট অর্ডার করুন এবং অফারটি লুফে নিন।  ❤️
                     </p>
                   </div>

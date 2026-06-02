@@ -5,6 +5,26 @@ import { VisitorSession, ProductView, VisitorStage, Product, TrackingEvent } fro
 let currentSessionId: string | null = null;
 let currentSessionData: VisitorSession | null = null;
 let heartbeatInterval: any = null;
+let isOfflineTracking = false;
+
+// Helper to check for Firebase quota or exhaustion errors
+const detectQuotaError = (error: any): boolean => {
+  if (!error) return false;
+  const errMsg = String(error.message || error).toLowerCase();
+  const errCode = String(error.code || '').toLowerCase();
+  return (
+    errCode === 'resource-exhausted' ||
+    errCode === 'quota-exceeded' ||
+    errCode === 'unavailable' ||
+    errCode === 'permission-denied' ||
+    errMsg.includes('quota') ||
+    errMsg.includes('resource-exhausted') ||
+    errMsg.includes('limit exceeded') ||
+    errMsg.includes('exhausted') ||
+    errMsg.includes('offline') ||
+    errMsg.includes('denied')
+  );
+};
 
 // Helper to remove undefined fields recursively so Firestore doesn't reject writing them
 const cleanUndefined = (obj: any): any => {
@@ -53,68 +73,87 @@ const getDeviceInfo = (): string => {
 
 // Start or resume visitor session
 export const startVisitorSession = async (): Promise<VisitorSession> => {
-  const { db } = await initializeFirebase();
   const sessionId = getOrCreateSessionId();
   const idSuffix = '#' + sessionId.split('_')[1].substring(0, 4).toUpperCase();
+  const now = new Date().toISOString();
 
-  const docRef = doc(db, 'visitor_sessions', sessionId);
-  
-  try {
-    const docSnap = await getDoc(docRef);
-    const now = new Date().toISOString();
-    
-    if (docSnap.exists()) {
-      currentSessionData = docSnap.data() as VisitorSession;
-      // Update activity
-      currentSessionData.lastActiveAt = now;
-      await setDoc(docRef, cleanUndefined({ lastActiveAt: now }), { merge: true });
-    } else {
-      currentSessionData = {
-        sessionId,
-        idSuffix,
-        customerName: 'Anonymous Visitor',
-        mobileNumber: '',
-        deviceInfo: getDeviceInfo(),
-        currentStage: 'browsing_home',
-        currentStageLabel: 'হোম পেজ ভিজিট',
-        views: [],
-        createdAt: now,
-        lastActiveAt: now
-      };
-      await setDoc(docRef, cleanUndefined(currentSessionData));
-    }
-  } catch (error) {
-    console.warn("Failed to retrieve or create visitor session starting from scratch locally", error);
-    currentSessionData = {
-      sessionId,
-      idSuffix,
-      customerName: 'Anonymous Visitor',
-      mobileNumber: '',
-      deviceInfo: getDeviceInfo(),
-      currentStage: 'browsing_home',
-      currentStageLabel: 'হোম পেজ ভিজিট',
-      views: [],
-      createdAt: new Date().toISOString(),
-      lastActiveAt: new Date().toISOString()
-    };
-  }
+  // Return the existing data if we already computed it in memory
+  if (currentSessionData) return currentSessionData;
 
-  // Setup Heartbeat every 20 seconds to update activity
-  if (heartbeatInterval) clearInterval(heartbeatInterval);
-  heartbeatInterval = setInterval(async () => {
-    try {
-      const { db: freshDb } = await initializeFirebase();
+  const defaultSession: VisitorSession = {
+    sessionId,
+    idSuffix,
+    customerName: 'Anonymous Visitor',
+    mobileNumber: '',
+    deviceInfo: getDeviceInfo(),
+    currentStage: 'browsing_home',
+    currentStageLabel: 'হোম পেজ ভিজিট',
+    views: [],
+    createdAt: now,
+    lastActiveAt: now
+  };
+
+  const setupHeartbeat = () => {
+    if (heartbeatInterval) clearInterval(heartbeatInterval);
+    heartbeatInterval = setInterval(async () => {
       const currentNow = new Date().toISOString();
-      const sessionDoc = doc(freshDb, 'visitor_sessions', sessionId);
-      await setDoc(sessionDoc, cleanUndefined({ lastActiveAt: currentNow }), { merge: true });
       if (currentSessionData) {
         currentSessionData.lastActiveAt = currentNow;
       }
-    } catch (e) {
-      console.warn("Session heartbeat failed", e);
-    }
-  }, 20000);
 
+      if (isOfflineTracking) return;
+
+      try {
+        const { db: freshDb } = await initializeFirebase();
+        if (!freshDb) return;
+        const sessionDoc = doc(freshDb, 'visitor_sessions', sessionId);
+        await setDoc(sessionDoc, cleanUndefined({ lastActiveAt: currentNow }), { merge: true });
+      } catch (e) {
+        if (detectQuotaError(e)) {
+          console.warn("Telemetry offline transition initiated by heartbeat limit response.");
+          isOfflineTracking = true;
+        }
+      }
+    }, 20000);
+  };
+
+  if (isOfflineTracking) {
+    currentSessionData = defaultSession;
+    setupHeartbeat();
+    return currentSessionData;
+  }
+
+  try {
+    const { db } = await initializeFirebase();
+    if (!db) {
+      isOfflineTracking = true;
+      currentSessionData = defaultSession;
+      setupHeartbeat();
+      return currentSessionData;
+    }
+
+    const docRef = doc(db, 'visitor_sessions', sessionId);
+    const docSnap = await getDoc(docRef);
+    
+    if (docSnap.exists()) {
+      currentSessionData = docSnap.data() as VisitorSession;
+      currentSessionData.lastActiveAt = now;
+      await setDoc(docRef, cleanUndefined({ lastActiveAt: now }), { merge: true });
+    } else {
+      currentSessionData = { ...defaultSession };
+      await setDoc(docRef, cleanUndefined(currentSessionData));
+    }
+  } catch (error) {
+    if (detectQuotaError(error)) {
+      console.warn("Telemetry database exhausted, running locally without firing network events.");
+      isOfflineTracking = true;
+    } else {
+      console.warn("Failed to retrieve or create visitor session starting from scratch locally:", error);
+    }
+    currentSessionData = defaultSession;
+  }
+
+  setupHeartbeat();
   return currentSessionData;
 };
 
@@ -143,8 +182,11 @@ export const updateVisitorStage = async (stage: VisitorStage, stageLabel: string
   currentSessionData.currentStageLabel = stageLabel;
   currentSessionData.lastActiveAt = new Date().toISOString();
 
+  if (isOfflineTracking) return;
+
   try {
     const { db } = await initializeFirebase();
+    if (!db) return;
     const docRef = doc(db, 'visitor_sessions', currentSessionData.sessionId);
     await setDoc(docRef, cleanUndefined({
       currentStage: stage,
@@ -152,7 +194,11 @@ export const updateVisitorStage = async (stage: VisitorStage, stageLabel: string
       lastActiveAt: currentSessionData.lastActiveAt
     }), { merge: true });
   } catch (err) {
-    console.warn("Failed to update visitor stage:", err);
+    if (detectQuotaError(err)) {
+      isOfflineTracking = true;
+    } else {
+      console.warn("Failed to update visitor stage:", err);
+    }
   }
 };
 
@@ -202,8 +248,11 @@ export const trackProductView = async (product: Product) => {
   }
   currentSessionData.lastActiveAt = now;
 
+  if (isOfflineTracking) return;
+
   try {
     const { db } = await initializeFirebase();
+    if (!db) return;
     const docRef = doc(db, 'visitor_sessions', currentSessionData.sessionId);
     await setDoc(docRef, cleanUndefined({
       views: updatedViews,
@@ -214,7 +263,11 @@ export const trackProductView = async (product: Product) => {
       lastActiveAt: now
     }), { merge: true });
   } catch (err) {
-    console.warn("Failed to track product view in firebase:", err);
+    if (detectQuotaError(err)) {
+      isOfflineTracking = true;
+    } else {
+      console.warn("Failed to track product view in firebase:", err);
+    }
   }
 };
 
@@ -257,12 +310,19 @@ export const updateVisitorCustomerInfo = async (info: {
 
   currentSessionData.lastActiveAt = now;
 
+  if (isOfflineTracking) return;
+
   try {
     const { db } = await initializeFirebase();
+    if (!db) return;
     const docRef = doc(db, 'visitor_sessions', currentSessionData.sessionId);
     await setDoc(docRef, cleanUndefined(updates), { merge: true });
   } catch (err) {
-    console.warn("Failed to update visitor contact info:", err);
+    if (detectQuotaError(err)) {
+      isOfflineTracking = true;
+    } else {
+      console.warn("Failed to update visitor contact info:", err);
+    }
   }
 };
 
@@ -314,12 +374,20 @@ export const logVisitorEvent = async (
         lastEvent.description = description;
         lastEvent.timestamp = event.timestamp;
         lastEvent.elapsedTime = Math.max(0, elapsed);
+
+        if (isOfflineTracking) return;
+
         try {
           const { db } = await initializeFirebase();
+          if (!db) return;
           const docRef = doc(db, 'visitor_sessions', currentSessionData.sessionId);
           await setDoc(docRef, cleanUndefined({ events: currentSessionData.events }), { merge: true });
         } catch (e) {
-          console.warn("Deduplicate scroll event failed", e);
+          if (detectQuotaError(e)) {
+            isOfflineTracking = true;
+          } else {
+            console.warn("Deduplicate scroll event failed", e);
+          }
         }
         return;
       }
@@ -335,12 +403,20 @@ export const logVisitorEvent = async (
         lastEvent.description = description;
         lastEvent.timestamp = event.timestamp;
         lastEvent.elapsedTime = Math.max(0, elapsed);
+
+        if (isOfflineTracking) return;
+
         try {
           const { db } = await initializeFirebase();
+          if (!db) return;
           const docRef = doc(db, 'visitor_sessions', currentSessionData.sessionId);
           await setDoc(docRef, cleanUndefined({ events: currentSessionData.events }), { merge: true });
         } catch (e) {
-          console.warn("Deduplicate input event failed", e);
+          if (detectQuotaError(e)) {
+            isOfflineTracking = true;
+          } else {
+            console.warn("Deduplicate input event failed", e);
+          }
         }
         return;
       }
@@ -354,33 +430,60 @@ export const logVisitorEvent = async (
     currentSessionData.events = currentSessionData.events.slice(0, 60);
   }
 
+  if (isOfflineTracking) return;
+
   try {
     const { db } = await initializeFirebase();
+    if (!db) return;
     const docRef = doc(db, 'visitor_sessions', currentSessionData.sessionId);
     await setDoc(docRef, cleanUndefined({
       events: currentSessionData.events,
       lastActiveAt: now.toISOString()
     }), { merge: true });
   } catch (err) {
-    console.warn("Failed to log visitor event:", err);
+    if (detectQuotaError(err)) {
+      isOfflineTracking = true;
+    } else {
+      console.warn("Failed to log visitor event:", err);
+    }
   }
 };
 
 // Listen to all live visitor sessions (for admin screen)
 export const subscribeToVisitorSessions = async (callback: (sessions: VisitorSession[]) => void) => {
+  const getOfflineSessions = (): VisitorSession[] => {
+    return currentSessionData ? [currentSessionData] : [];
+  };
+
   const { db } = await initializeFirebase();
+  if (!db || isOfflineTracking) {
+    callback(getOfflineSessions());
+    return () => {};
+  }
+
   const sessionsCol = collection(db, 'visitor_sessions');
   const q = query(sessionsCol);
   
-  return onSnapshot(q, (snapshot) => {
-    const sessions: VisitorSession[] = [];
-    snapshot.forEach((docSnap) => {
-      sessions.push({ id: docSnap.id, ...docSnap.data() } as VisitorSession);
+  try {
+    return onSnapshot(q, (snapshot) => {
+      const sessions: VisitorSession[] = [];
+      snapshot.forEach((docSnap) => {
+        sessions.push({ id: docSnap.id, ...docSnap.data() } as VisitorSession);
+      });
+      // Sort descending by lastActiveAt
+      sessions.sort((a, b) => new Date(b.lastActiveAt).getTime() - new Date(a.lastActiveAt).getTime());
+      callback(sessions);
+    }, (err) => {
+      if (detectQuotaError(err)) {
+        isOfflineTracking = true;
+      }
+      callback(getOfflineSessions());
     });
-    // Sort descending by lastActiveAt
-    sessions.sort((a, b) => new Date(b.lastActiveAt).getTime() - new Date(a.lastActiveAt).getTime());
-    callback(sessions);
-  }, (err) => {
-    console.error("Live visitor fetch failed:", err);
-  });
+  } catch (err) {
+    if (detectQuotaError(err)) {
+      isOfflineTracking = true;
+    }
+    callback(getOfflineSessions());
+    return () => {};
+  }
 };

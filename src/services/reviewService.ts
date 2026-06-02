@@ -1,5 +1,20 @@
 import { collection, addDoc, getDocs, query, orderBy, where, doc, deleteDoc } from 'firebase/firestore';
-import { initializeFirebase } from '../lib/firebase';
+import { initializeFirebase, markQuotaExhausted } from '../lib/firebase';
+
+function detectQuotaError(error: any): boolean {
+  if (!error) return false;
+  const errMsg = String(error.message || error).toLowerCase();
+  const errCode = String(error.code || '').toLowerCase();
+  return (
+    errCode === 'resource-exhausted' ||
+    errCode === 'quota-exceeded' ||
+    errMsg.includes('quota') ||
+    errMsg.includes('resource-exhausted') ||
+    errMsg.includes('limit exceeded') ||
+    errMsg.includes('exhausted') ||
+    errMsg.includes('unavailable')
+  );
+}
 
 export interface ProductReview {
   id?: string;
@@ -90,6 +105,9 @@ export const createReview = async (
     const docRef = await addDoc(collection(db, COLLECTION_NAME), newReview);
     return { id: docRef.id, ...newReview };
   } catch (error) {
+    if (detectQuotaError(error)) {
+      markQuotaExhausted();
+    }
     console.error("Error writing review to Firestore:", error);
     // Fallback to local
     const localKey = `local_reviews_${productId}`;
@@ -130,6 +148,9 @@ export const getReviewsForProduct = async (productId: string, productCode: strin
         }
       });
     } catch (error) {
+      if (detectQuotaError(error)) {
+        markQuotaExhausted();
+      }
       console.warn("Could not load reviews from Firestore, using offline cache:", error);
     }
   }
