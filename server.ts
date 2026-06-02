@@ -4,7 +4,7 @@ import { createServer as createViteServer } from "vite";
 
 async function startServer() {
   const app = express();
-  const PORT = 3000;
+  const PORT = process.env.PORT || 3000;
 
   app.use(express.json());
 
@@ -153,8 +153,8 @@ async function startServer() {
   }
 
   // Bind server listener
-  app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Server successfully bounded to 0.0.0.0:${PORT}`);
+  app.listen(PORT, () => {
+    console.log(`Server successfully bounded to port ${PORT}`);
   });
 }
 
