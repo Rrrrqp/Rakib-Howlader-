@@ -217,17 +217,17 @@ export default function ProductSection({ register, errors, watch, setValue, cart
             <button
               type="button"
               onClick={() => setShowPromoCards(!showPromoCards)}
-              className="w-full flex items-center justify-between p-3.5 bg-gradient-to-r from-amber-50 to-gold-50 border border-gold-200 rounded-2xl hover:brightness-95 active:brightness-90 transition-all font-serif cursor-pointer shadow-sm group"
+              className="w-full flex items-center justify-between p-2.5 sm:p-3.5 bg-gradient-to-r from-amber-50 to-gold-50 border border-gold-200 rounded-2xl hover:brightness-95 active:brightness-90 transition-all font-serif cursor-pointer shadow-sm group select-none"
             >
-              <div className="flex items-center gap-2.5 text-xs text-amber-900 font-bold">
-                <Gift className="text-[#e2136e] group-hover:rotate-12 transition-transform" size={16} />
-                <span>🎁 প্রোমোশনাল কার্ড দেখুন (View Promo Offers)</span>
+              <div className="flex items-center gap-1.5 sm:gap-2.5 text-[10px] xs:text-xs text-amber-900 font-bold min-w-0 flex-1 mr-2 text-left">
+                <Gift className="text-[#e2136e] group-hover:rotate-12 transition-transform shrink-0" size={15} />
+                <span className="leading-tight break-words">প্রোমোশনাল কার্ড দেখুন (View Promo Offers)</span>
               </div>
-              <div className="flex items-center gap-1">
-                <span className="text-[9px] font-serif font-black uppercase text-amber-700 bg-amber-100 rounded-full px-2 py-0.5 tracking-wider">
+              <div className="flex items-center gap-1 shrink-0">
+                <span className="text-[8px] sm:text-[9px] font-serif font-black uppercase text-amber-700 bg-amber-100 rounded-full px-1.5 py-0.5 tracking-wider">
                   {spinCoupon ? '৫ টি অফার' : '৪ টি অফার'}
                 </span>
-                {showPromoCards ? <ChevronUp size={16} className="text-amber-700" /> : <ChevronDown size={16} className="text-amber-700" />}
+                {showPromoCards ? <ChevronUp size={14} className="text-amber-700 shrink-0" /> : <ChevronDown size={14} className="text-amber-700 shrink-0" />}
               </div>
             </button>
 
