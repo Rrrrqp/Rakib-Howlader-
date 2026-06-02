@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { getAllOrders, updateOrderStatus, updateOrder, deleteOrder } from '../services/orderService';
+import { getAllOrders, updateOrderStatus, updateOrder, deleteOrder, subscribeOrders } from '../services/orderService';
 import { getBrandSettings } from '../services/settingsService';
 import { Order, Category } from '../types';
 import { 
@@ -469,7 +469,38 @@ export default function AdminDashboard() {
   };
 
   useEffect(() => {
-    fetchOrders();
+    let unsubscribe: any = null;
+
+    const setupRealtimeSubscription = async () => {
+      // First, fetch brand settings in background
+      try {
+        const settingsData = await getBrandSettings();
+        setBrandSettings(settingsData);
+      } catch (err) {
+        console.error("Failed to load brand settings in background:", err);
+      }
+
+      // Then subscribe to real-time orders list
+      try {
+        const sub = await subscribeOrders((latestOrders) => {
+          setOrders(latestOrders);
+          setLoading(false);
+        });
+        unsubscribe = sub;
+      } catch (err) {
+        console.error("Failed to subscribe to orders real-time:", err);
+        // Fallback to traditional block fetch if subscription fails
+        fetchOrders();
+      }
+    };
+
+    setupRealtimeSubscription();
+
+    return () => {
+      if (unsubscribe) {
+        unsubscribe();
+      }
+    };
   }, []);
 
   useEffect(() => {

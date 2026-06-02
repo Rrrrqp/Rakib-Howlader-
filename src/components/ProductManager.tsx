@@ -697,15 +697,28 @@ export default function ProductManager() {
                       </div>
 
                       {/* Description */}
-                      <div className="space-y-2 col-span-2">
-                        <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">বিস্তারিত বিবরণ</label>
+                      <div className="space-y-3 col-span-2 bg-rose-50/35 p-6 rounded-3xl border border-rose-100/50">
+                        <div className="flex items-center justify-between">
+                          <label className="text-xs font-black text-brand-charcoal uppercase tracking-widest flex items-center gap-1.5">
+                            <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
+                            পণ্যর বিস্তারিত বিবরণ / ডিটেইলস (Detailed Description)
+                          </label>
+                          <span className="text-[10px] bg-rose-500/15 text-rose-700 px-3 py-1 rounded-full font-bold">
+                            লাইন ব্রেক বা এন্টার কী সমর্থিত ⏎
+                          </span>
+                        </div>
                         <textarea 
-                          rows={3}
-                          placeholder="যেমন: ১০০% কটন ফেব্রিক, প্রিমিয়াম এমব্রয়ডারি ওয়ার্ক..."
+                          rows={10}
+                          placeholder={`উদাহরণস্বরূপ:\n\n✅ প্রিমিয়াম কোয়ালিটি ১০০% সিল্ক ফেব্রিক\n✅ আকর্ষণীয় মেরুন ও গোল্ডেন কালার কম্বিনেশন\n✅ প্রিমিয়াম ডাবল-স্টিচ ফিনিশিং\n✅ আরামদায়ক এবং দীর্ঘস্থায়ী শাড়ি\n✅ বিবাহ, উৎসব, পার্টি বা বিশেষ অনুষ্ঠানের জন্য উপযোগী`}
                           value={entry.description}
                           onChange={(e) => updateFormEntry(index, { description: e.target.value })}
-                          className="w-full px-6 py-4 rounded-2xl bg-gray-50 border border-gray-100 focus:ring-2 focus:ring-rose-500/20 outline-none transition-all text-sm font-medium"
+                          className="w-full px-6 py-4 rounded-2xl bg-white border border-gray-250 focus:ring-4 focus:ring-rose-550/20 focus:border-rose-500 outline-none transition-all text-sm font-semibold leading-relaxed shadow-inner placeholder-gray-400"
                         />
+                        <div className="flex items-start gap-1.5 text-[11px] text-gray-500 leading-normal pl-1">
+                          <span className="animate-pulse text-amber-500">💡</span>
+                          <span className="font-bold">টিপস:</span>
+                          <span className="font-medium">ডিটেইলস লেখার সময় প্রতিটি পয়েন্ট আলাদা লাইনে (এন্টার প্রেস করে) লিখুন। আপনি আপনার ইচ্ছামতো ইমোজি (যেমন- ✅, 🌟, 🌸) কিংবা বুলেট পয়েন্ট ব্যবহার করতে পারেন। কাস্টমার ঠিক একইভাবে গুছানো লিস্ট আকারে আপনার লেখাটি দেখতে পাবে।</span>
+                        </div>
                       </div>
 
                       {/* Social Proof & Live Sales Customization segment */}

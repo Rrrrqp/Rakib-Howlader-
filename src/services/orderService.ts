@@ -1,4 +1,4 @@
-import { collection, addDoc, getDocs, query, orderBy, doc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { collection, addDoc, getDocs, query, orderBy, doc, updateDoc, deleteDoc, onSnapshot } from 'firebase/firestore';
 import { initializeFirebase } from '../lib/firebase';
 import { Order, OrderStatus } from '../types';
 
@@ -168,5 +168,42 @@ export const deleteOrder = async (id: string) => {
     await deleteDoc(docRef);
   } catch (error) {
     await handleFirestoreError(error, OperationType.DELETE, `${path}/${id}`);
+  }
+};
+
+export const subscribeOrders = async (callback: (orders: Order[]) => void) => {
+  const { db } = await initializeFirebase();
+  if (!db) {
+    console.warn("Firebase not initialized. Cannot subscribe. Reading from localStorage.");
+    const fallback = JSON.parse(localStorage.getItem('sera_orders') || '[]');
+    callback(fallback);
+    return () => {};
+  }
+
+  const path = 'orders';
+  try {
+    const q = query(collection(db, path), orderBy('createdAt', 'desc'));
+    
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const ordersList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order));
+      
+      // Update local cache
+      try {
+        localStorage.setItem('cached_orders', JSON.stringify(ordersList));
+      } catch (cacheErr) {
+        console.warn("Failed to cache subscription orders:", cacheErr);
+      }
+      
+      callback(ordersList);
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, path).catch(console.error);
+    });
+    
+    return unsubscribe;
+  } catch (err) {
+    console.error("Failed to setup orders subscription:", err);
+    const fallback = JSON.parse(localStorage.getItem('cached_orders') || '[]');
+    callback(fallback);
+    return () => {};
   }
 };

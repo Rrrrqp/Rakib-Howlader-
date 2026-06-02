@@ -13,7 +13,7 @@ import PaymentSection from './components/PaymentSection';
 import ReturnPolicy from './components/ReturnPolicy';
 import FacebookFollow from './components/FacebookFollow';
 import ReviewSection from './components/ReviewSection';
-import CouponSection from './components/CouponSection';
+import SpinWheelModal from './components/SpinWheelModal';
 import SuccessView from './components/SuccessView';
 import AdminDashboard from './components/AdminDashboard';
 import { createOrder } from './services/orderService';
@@ -605,7 +605,7 @@ export default function App() {
                           )}
                         </div>
 
-                        <CouponSection onSelect={(val) => setValue('discount', val)} />
+
 
                         <section id="product-order">
                           <ProductSection 
@@ -722,6 +722,10 @@ export default function App() {
           </motion.div>
         )}
       </AnimatePresence>
+      
+      {view === 'form' && !isSubmitted && (
+        <SpinWheelModal setValue={setValue} watch={watch} cartLength={cart.length} />
+      )}
     </div>
   );
 }
