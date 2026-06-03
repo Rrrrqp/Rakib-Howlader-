@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Settings, Upload, Image as ImageIcon, Check, RefreshCw, AlertCircle, Trash2, Bell, Volume2, Send, ShieldAlert, BadgeHelp, Truck, Key, Lock, Building } from 'lucide-react';
+import { Settings, Upload, Image as ImageIcon, Check, RefreshCw, AlertCircle, Trash2, Bell, Volume2, Send, ShieldAlert, BadgeHelp, Truck, Key, Lock, Building, Cpu } from 'lucide-react';
 import { getBrandSettings, updateBrandSettings, getBrandLogoSettings, updateBrandLogoSettings } from '../services/settingsService';
 import { uploadImage } from '../services/productService';
 import { playNotificationSound, requestBrowserNotificationPermission, sendBrowserNotification } from '../services/notificationService';
@@ -54,6 +54,15 @@ export default function SettingsManager() {
     steadfastApiKey: '',
     steadfastSecretKey: '',
     steadfastMerchantId: '',
+    smsGateway: 'device',
+    smsGreenwebToken: '',
+    smsElitbuzzApiKey: '',
+    smsElitbuzzSenderId: '',
+    smsMimsmsApiKey: '',
+    smsMimsmsSenderId: '',
+    smsTwilioSid: '',
+    smsTwilioAuthToken: '',
+    smsTwilioFrom: '',
   });
   const [savingSettings, setSavingSettings] = useState(false);
   const [testingTelegram, setTestingTelegram] = useState(false);
@@ -328,6 +337,15 @@ export default function SettingsManager() {
         steadfastApiKey: settings.steadfastApiKey,
         steadfastSecretKey: settings.steadfastSecretKey,
         steadfastMerchantId: settings.steadfastMerchantId,
+        smsGateway: settings.smsGateway,
+        smsGreenwebToken: settings.smsGreenwebToken,
+        smsElitbuzzApiKey: settings.smsElitbuzzApiKey,
+        smsElitbuzzSenderId: settings.smsElitbuzzSenderId,
+        smsMimsmsApiKey: settings.smsMimsmsApiKey,
+        smsMimsmsSenderId: settings.smsMimsmsSenderId,
+        smsTwilioSid: settings.smsTwilioSid,
+        smsTwilioAuthToken: settings.smsTwilioAuthToken,
+        smsTwilioFrom: settings.smsTwilioFrom,
       });
       setMessage({ type: 'success', text: 'অভিনন্দন! আপনার সব সেটিংস (কুরিয়ার ও নোটিফিকেশন) সফলভাবে সেভ করা হয়েছে।' });
     } catch (err) {
@@ -828,12 +846,163 @@ export default function SettingsManager() {
 
               </div>
 
+              {/* SMS Gateway Configurations Card */}
+              <div className="bg-gradient-to-tr from-indigo-50/40 via-white to-purple-50/10 p-5 rounded-3xl border border-indigo-100 space-y-6">
+                
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 bg-indigo-600 text-white rounded-2xl shadow-md shadow-indigo-600/10">
+                    <Send size={18} />
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-black text-indigo-900 uppercase tracking-wider">অটোমেটেড এসএমএস গেটওয়ে সেটিংস (SMS Gateway Connectivity)</h4>
+                    <p className="text-[10px] text-indigo-600 font-bold">কাস্টমারদের ফলোআপ ও ডিসকাউন্ট কোড সরাসরি SMS পাঠানোর জন্য কানেক্ট করুন</p>
+                  </div>
+                </div>
+
+                {/* Gateway Type Selector */}
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-2 pt-1">
+                  {[
+                    { key: 'device', label: 'DEVICE / FREE' },
+                    { key: 'greenweb', label: 'GREENWEB' },
+                    { key: 'elitbuzz', label: 'ELITBUZZ' },
+                    { key: 'mimsms', label: 'MIM SMS' },
+                    { key: 'twilio', label: 'TWILIO GLOBAL' }
+                  ].map((g) => (
+                    <button
+                      key={g.key}
+                      type="button"
+                      onClick={() => setSettings(prev => ({ ...prev, smsGateway: g.key as any }))}
+                      className={`py-2.5 px-2 rounded-xl border text-[10px] font-black transition-all flex items-center justify-center text-center ${
+                        settings.smsGateway === g.key
+                          ? 'bg-indigo-600 border-indigo-600 text-white shadow-md'
+                          : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-500'
+                      }`}
+                    >
+                      {g.label}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="pt-1">
+                  {settings.smsGateway === 'device' && (
+                    <div className="bg-emerald-500/5 p-4 rounded-2xl border border-emerald-500/10 text-left">
+                      <h5 className="text-xs font-black text-slate-800 flex items-center gap-1.5 mb-1">
+                        <Cpu size={12} className="text-emerald-500" />
+                        ডিভাইস মেসেঞ্জার গেটওয়ে (100% Free):
+                      </h5>
+                      <p className="text-[10px] text-slate-600 leading-normal font-semibold">
+                        মেসেজ অ্যাপ খোলার জন্য বিশেষ প্রোটোকল। ড্যাশবোর্ড থেকে SMS বাটনে চাপলে আপনার ডিভাইস এর SMS ম্যানেজার ওপেন হবে এবং বার্তাটি অটোমেটিক লিখে কাস্টমারের নম্বরে নিয়ে যাবে। কোন API কী লাগবে না।
+                      </p>
+                    </div>
+                  )}
+
+                  {settings.smsGateway === 'greenweb' && (
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-black text-indigo-805 uppercase tracking-widest block text-left">Greenweb API Token:</label>
+                      <input 
+                        type="password"
+                        value={settings.smsGreenwebToken || ''}
+                        onChange={(e) => setSettings(prev => ({ ...prev, smsGreenwebToken: e.target.value }))}
+                        placeholder="যেমন: m61409228-5696-2917-..."
+                        className="w-full px-4 py-3 bg-white text-gray-805 placeholder-gray-400 font-mono text-xs rounded-2xl border border-indigo-100 focus:border-indigo-400 focus:ring-1 focus:ring-indigo-400 outline-none transition-all shadow-inner"
+                      />
+                    </div>
+                  )}
+
+                  {settings.smsGateway === 'elitbuzz' && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-left font-sans">
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-black text-indigo-800 uppercase tracking-widest block">Elitbuzz API Key:</label>
+                        <input 
+                          type="password"
+                          value={settings.smsElitbuzzApiKey || ''}
+                          onChange={(e) => setSettings(prev => ({ ...prev, smsElitbuzzApiKey: e.target.value }))}
+                          placeholder="আপনার এপিআই কী..."
+                          className="w-full px-4 py-3 bg-white text-gray-800 placeholder-gray-400 font-mono text-xs rounded-2xl border border-indigo-100 focus:border-indigo-400 focus:ring-1 focus:ring-indigo-400 outline-none transition-all shadow-inner"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-black text-indigo-800 uppercase tracking-widest block">Elitbuzz Sender ID:</label>
+                        <input 
+                          type="text"
+                          value={settings.smsElitbuzzSenderId || ''}
+                          onChange={(e) => setSettings(prev => ({ ...prev, smsElitbuzzSenderId: e.target.value }))}
+                          placeholder="যেমন: 8801844..."
+                          className="w-full px-4 py-3 bg-white text-gray-800 placeholder-gray-400 font-bold text-xs rounded-2xl border border-indigo-100 focus:border-indigo-400 focus:ring-1 focus:ring-indigo-400 outline-none transition-all shadow-inner"
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {settings.smsGateway === 'mimsms' && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-left font-sans">
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-black text-indigo-800 uppercase tracking-widest block">MiM SMS API Key:</label>
+                        <input 
+                          type="password"
+                          value={settings.smsMimsmsApiKey || ''}
+                          onChange={(e) => setSettings(prev => ({ ...prev, smsMimsmsApiKey: e.target.value }))}
+                          placeholder="মিম এপিআই টোকেন..."
+                          className="w-full px-4 py-3 bg-white text-gray-800 placeholder-gray-400 font-mono text-xs rounded-2xl border border-indigo-100 focus:border-indigo-400 focus:ring-1 focus:ring-indigo-400 outline-none transition-all shadow-inner"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-black text-indigo-800 uppercase tracking-widest block">MiM Approved Sender ID:</label>
+                        <input 
+                          type="text"
+                          value={settings.smsMimsmsSenderId || ''}
+                          onChange={(e) => setSettings(prev => ({ ...prev, smsMimsmsSenderId: e.target.value }))}
+                          placeholder="যেমন: SERAFASHION"
+                          className="w-full px-4 py-3 bg-white text-gray-800 placeholder-gray-400 font-bold text-xs rounded-2xl border border-indigo-100 focus:border-indigo-400 focus:ring-1 focus:ring-indigo-400 outline-none transition-all shadow-inner"
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {settings.smsGateway === 'twilio' && (
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-left font-sans">
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-black text-indigo-800 uppercase tracking-widest block">Account SID:</label>
+                        <input 
+                          type="text"
+                          value={settings.smsTwilioSid || ''}
+                          onChange={(e) => setSettings(prev => ({ ...prev, smsTwilioSid: e.target.value }))}
+                          placeholder="AC..."
+                          className="w-full px-4 py-3 bg-white text-gray-800 placeholder-gray-400 font-mono text-xs rounded-2xl border border-indigo-100 focus:border-indigo-400 focus:ring-1 focus:ring-indigo-400 outline-none transition-all shadow-inner"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-black text-indigo-800 uppercase tracking-widest block">Auth Token:</label>
+                        <input 
+                          type="password"
+                          value={settings.smsTwilioAuthToken || ''}
+                          onChange={(e) => setSettings(prev => ({ ...prev, smsTwilioAuthToken: e.target.value }))}
+                          placeholder="সিক্রেট অবজেক্ট..."
+                          className="w-full px-4 py-3 bg-white text-gray-800 placeholder-gray-400 font-mono text-xs rounded-2xl border border-indigo-100 focus:border-indigo-400 focus:ring-1 focus:ring-indigo-400 outline-none transition-all shadow-inner"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-black text-indigo-800 uppercase tracking-widest block">From Number:</label>
+                        <input 
+                          type="text"
+                          value={settings.smsTwilioFrom || ''}
+                          onChange={(e) => setSettings(prev => ({ ...prev, smsTwilioFrom: e.target.value }))}
+                          placeholder="+1xxxxxxxxxx"
+                          className="w-full px-4 py-3 bg-white text-gray-800 placeholder-gray-400 font-bold text-xs rounded-2xl border border-indigo-100 focus:border-indigo-400 focus:ring-1 focus:ring-indigo-400 outline-none transition-all shadow-inner"
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+              </div>
+
               {/* Form submit footer button */}
               <div className="flex justify-end pt-3 border-t border-gray-150">
                 <button
                   type="submit"
                   disabled={savingSettings}
-                  className="px-8 py-4 bg-rose-600 hover:bg-rose-700 text-white font-black text-xs uppercase tracking-widest rounded-2xl shadow-xl shadow-rose-600/10 hover:shadow-rose-600/25 active:scale-95 disabled:opacity-50 transition-all flex items-center gap-2"
+                  className="px-8 py-4 bg-rose-600 hover:bg-rose-700 text-white font-black text-xs uppercase tracking-widest rounded-2xl shadow-xl shadow-rose-600/10 hover:shadow-rose-600/25 active:scale-95 disabled:opacity-50 transition-all flex items-center gap-2 cursor-pointer"
                 >
                   {savingSettings ? <RefreshCw className="animate-spin" size={14} /> : <Check size={14} />}
                   সেটিংস সেভ করুন (Save Settings)

@@ -21,6 +21,7 @@ import SettingsManager from './SettingsManager';
 import LiveVisitorTracker from './LiveVisitorTracker';
 import ReviewManager from './ReviewManager';
 import SpinWheelLeadsList from './SpinWheelLeadsList';
+import SMSSenderModal from './SMSSenderModal';
 import { Activity, MessageSquare } from 'lucide-react';
 
 export interface CourierStat {
@@ -319,6 +320,15 @@ export default function AdminDashboard() {
   const [isWelcomeGiftOpen, setIsWelcomeGiftOpen] = useState(false);
   const [giftCustomerName, setGiftCustomerName] = useState('');
   const [copiedSmsText, setCopiedSmsText] = useState<string | null>(null);
+
+  // Automated SMS sending modal states
+  const [isSmsOpen, setIsSmsOpen] = useState(false);
+  const [smsRecipientName, setSmsRecipientName] = useState('');
+  const [smsRecipientPhone, setSmsRecipientPhone] = useState('');
+  const [smsOrderId, setSmsOrderId] = useState('');
+  const [smsTotalAmount, setSmsTotalAmount] = useState<number | string>('');
+  const [smsCancelReason, setSmsCancelReason] = useState('');
+  const [smsContext, setSmsContext] = useState<'spin' | 'order-confirm' | 'order-cancel' | 'order-shipped' | 'general'>('general');
 
   // Steadfast state variables
   const [brandSettings, setBrandSettings] = useState<any>(() => {
@@ -2087,27 +2097,44 @@ export default function AdminDashboard() {
                         <div className="bg-white p-4 rounded-xl border border-emerald-100 shadow-sm space-y-3 relative overflow-hidden">
                           <div className="flex justify-between items-center text-[10px] font-black text-emerald-800">
                             <span>হোয়াটসঅ্যাপ/এসএমএস টেমপ্লেট (CONFIRMATION SMS)</span>
-                            <button
-                              onClick={() => {
-                                const smsText = `প্রিয় ${viewingOrder.customerName}, অভিনন্দন! সেরা ফ্যাশন হাউজ (Sera Fashion House) থেকে আপনার #${viewingOrder.orderId} নং অর্ডারটি সফলভাবে কনফার্ম করা হয়েছে।\n📦 অর্ডার আইডি: #${viewingOrder.orderId}\n💵 মোট প্রদেয় মূল্য: ৳${viewingOrder.totalAmount.toLocaleString('en-US')}\n🚀 আপনার অর্ডারটি খুব দ্রুত ডেলিভারি টিমকে হস্তান্তর করা হচ্ছে। আমাদের সাথে থাকার জন্য ধন্যবাদ!`;
-                                navigator.clipboard.writeText(smsText);
-                                setCopiedSmsText('confirm');
-                                setTimeout(() => setCopiedSmsText(null), 2500);
-                              }}
-                              className="text-[9px] font-black bg-emerald-100 text-emerald-805 px-3 py-1.5 rounded-lg flex items-center gap-1 hover:bg-emerald-200 transition-all active:scale-95"
-                            >
-                              {copiedSmsText === 'confirm' ? (
-                                <>
-                                  <CheckCircle2 size={12} className="text-emerald-600" />
-                                  <span>কপি হয়েছে!</span>
-                                </>
-                              ) : (
-                                <>
-                                  <Copy size={12} />
-                                  <span>টেক্সট কপি করুন</span>
-                                </>
-                              )}
-                            </button>
+                            <div className="flex items-center gap-1.5">
+                              <button
+                                onClick={() => {
+                                  const smsText = `প্রিয় ${viewingOrder.customerName}, অভিনন্দন! সেরা ফ্যাশন হাউজ (Sera Fashion House) থেকে আপনার #${viewingOrder.orderId} নং অর্ডারটি সফলভাবে কনফার্ম করা হয়েছে।\n📦 অর্ডার আইডি: #${viewingOrder.orderId}\n💵 মোট প্রদেয় মূল্য: ৳${viewingOrder.totalAmount.toLocaleString('en-US')}\n🚀 আপনার অর্ডারটি খুব দ্রুত ডেলিভারি টিমকে হস্তান্তর করা হচ্ছে। আমাদের সাথে থাকার জন্য ধন্যবাদ!`;
+                                  navigator.clipboard.writeText(smsText);
+                                  setCopiedSmsText('confirm');
+                                  setTimeout(() => setCopiedSmsText(null), 2500);
+                                }}
+                                className="text-[9px] font-black bg-emerald-100 text-emerald-805 px-2.5 py-1.5 rounded-lg flex items-center gap-1 hover:bg-emerald-200 transition-all active:scale-95 cursor-pointer"
+                              >
+                                {copiedSmsText === 'confirm' ? (
+                                  <>
+                                    <CheckCircle2 size={11} className="text-emerald-600" />
+                                    <span>কপি হয়েছে!</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <Copy size={11} />
+                                    <span>টেক্সট কপি করুন</span>
+                                  </>
+                                )}
+                              </button>
+                              
+                              <button
+                                onClick={() => {
+                                  setSmsRecipientName(viewingOrder.customerName || '');
+                                  setSmsRecipientPhone(viewingOrder.mobileNumber || '');
+                                  setSmsOrderId(viewingOrder.orderId || '');
+                                  setSmsTotalAmount(viewingOrder.totalAmount || '');
+                                  setSmsContext('order-confirm');
+                                  setIsSmsOpen(true);
+                                }}
+                                className="text-[9px] font-black bg-indigo-600 text-white px-3 py-1.5 rounded-lg flex items-center gap-1 hover:bg-indigo-700 transition-all active:scale-95 cursor-pointer shadow-sm"
+                              >
+                                <Send size={11} className="text-indigo-200" />
+                                <span>সরাসরি SMS পাঠান 🚀</span>
+                              </button>
+                            </div>
                           </div>
                           <div className="p-3 bg-gray-50/70 rounded-xl border border-dashed border-gray-100 text-[10.5px] text-gray-600 leading-relaxed font-mono whitespace-pre-wrap select-all font-bold">
                             {`প্রিয় ${viewingOrder.customerName}, অভিনন্দন! সেরা ফ্যাশন হাউজ (Sera Fashion House) থেকে আপনার #${viewingOrder.orderId} নং অর্ডারটি সফলভাবে কনফার্ম করা হয়েছে।\n📦 অর্ডার আইডি: #${viewingOrder.orderId}\n💵 মোট প্রদেয় মূল্য: ৳${viewingOrder.totalAmount.toLocaleString('en-US')}\n🚀 আপনার অর্ডারটি খুব দ্রুত ডেলিভারি টিমকে হস্তান্তর করা হচ্ছে। আমাদের সাথে থাকার জন্য ধন্যবাদ!`}
@@ -2163,28 +2190,46 @@ export default function AdminDashboard() {
                         <div className="bg-white p-4 rounded-xl border border-rose-100 shadow-sm space-y-3 relative overflow-hidden mt-3">
                           <div className="flex justify-between items-center text-[10px] font-black text-rose-800">
                             <span>অর্ডার বাতিলের নোটিফিকেশন টেমপ্লেট (CANCELLATION SMS)</span>
-                            <button
-                              onClick={() => {
-                                const selectedReasonBangla = viewingOrder.cancelReason || "যোগাযোগ অসম্পূর্ণ বা কাস্টমার ইচ্ছা প্রকাশ করেননি";
-                                const smsText = `প্রিয় ${viewingOrder.customerName}, দুঃখিত! সেরা ফ্যাশন হাউজ (Sera Fashion House) থেকে আপনার #${viewingOrder.orderId} নং অর্ডারটি বাতিল করা হয়েছে।\n❌ কারণ: ${selectedReasonBangla}\n\nযেকোনো প্রয়োজনে আমাদের পেইজে ইনবক্স করুন। ধন্যবাদ!`;
-                                navigator.clipboard.writeText(smsText);
-                                setCopiedSmsText('cancel');
-                                setTimeout(() => setCopiedSmsText(null), 2500);
-                              }}
-                              className="text-[9px] font-black bg-rose-100 text-rose-805 px-3 py-1.5 rounded-lg flex items-center gap-1 hover:bg-rose-200 transition-all active:scale-95 animate-pulse"
-                            >
-                              {copiedSmsText === 'cancel' ? (
-                                <>
-                                  <CheckCircle2 size={12} className="text-rose-600" />
-                                  <span>কপি হয়েছে!</span>
-                                </>
-                              ) : (
-                                <>
-                                  <Copy size={12} />
-                                  <span>টেক্সট কপি করুন</span>
-                                </>
-                              )}
-                            </button>
+                            <div className="flex items-center gap-1.5">
+                              <button
+                                onClick={() => {
+                                  const selectedReasonBangla = viewingOrder.cancelReason || "যোগাযোগ অসম্পূর্ণ বা কাস্টমার ইচ্ছা প্রকাশ করেননি";
+                                  const smsText = `প্রিয় ${viewingOrder.customerName}, দুঃখিত! সেরা ফ্যাশন হাউজ (Sera Fashion House) থেকে আপনার #${viewingOrder.orderId} নং অর্ডারটি বাতিল করা হয়েছে।\n❌ কারণ: ${selectedReasonBangla}\n\nযেকোনো প্রয়োজনে আমাদের পেইজে ইনবক্স করুন। ধন্যবাদ!`;
+                                  navigator.clipboard.writeText(smsText);
+                                  setCopiedSmsText('cancel');
+                                  setTimeout(() => setCopiedSmsText(null), 2500);
+                                }}
+                                className="text-[9px] font-black bg-rose-100 text-rose-805 px-2.5 py-1.5 rounded-lg flex items-center gap-1 hover:bg-rose-200 transition-all active:scale-95 cursor-pointer"
+                              >
+                                {copiedSmsText === 'cancel' ? (
+                                  <>
+                                    <CheckCircle2 size={11} className="text-rose-600" />
+                                    <span>কপি হয়েছে!</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <Copy size={11} />
+                                    <span>টেক্সট কপি করুন</span>
+                                  </>
+                                )}
+                              </button>
+
+                              <button
+                                onClick={() => {
+                                  setSmsRecipientName(viewingOrder.customerName || '');
+                                  setSmsRecipientPhone(viewingOrder.mobileNumber || '');
+                                  setSmsOrderId(viewingOrder.orderId || '');
+                                  setSmsTotalAmount(viewingOrder.totalAmount || '');
+                                  setSmsCancelReason(viewingOrder.cancelReason || '');
+                                  setSmsContext('order-cancel');
+                                  setIsSmsOpen(true);
+                                }}
+                                className="text-[9px] font-black bg-rose-650 hover:bg-rose-700 text-white px-3 py-1.5 rounded-lg flex items-center gap-1 transition-all active:scale-95 cursor-pointer shadow-sm"
+                              >
+                                <Send size={11} className="text-white" />
+                                <span>সরাসরি SMS পাঠান 🚀</span>
+                              </button>
+                            </div>
                           </div>
                           <div className="p-3 bg-gray-50/70 rounded-xl border border-dashed border-gray-100 text-[10.5px] text-gray-600 leading-relaxed font-mono whitespace-pre-wrap select-all font-bold">
                             {`প্রিয় ${viewingOrder.customerName}, দুঃখিত! সেরা ফ্যাশন হাউজ (Sera Fashion House) থেকে আপনার #${viewingOrder.orderId} নং অর্ডারটি বাতিল করা হয়েছে।\n❌ কারণ: ${viewingOrder.cancelReason || "যোগাযোগ অসম্পূর্ণ বা কাস্টমার ইচ্ছা প্রকাশ করেননি"}\n\nযেকোনো প্রয়োজনে আমাদের পেইজে ইনবক্স করুন। ধন্যবাদ!`}
@@ -3066,6 +3111,18 @@ export default function AdminDashboard() {
           {printingOrder && <DigitalInvoice order={printingOrder} />}
         </div>
       </div>
+
+      {/* Dynamic automated SMS dispatch modal */}
+      <SMSSenderModal
+        isOpen={isSmsOpen}
+        onClose={() => setIsSmsOpen(false)}
+        recipientName={smsRecipientName}
+        recipientPhone={smsRecipientPhone}
+        orderId={smsOrderId}
+        totalAmount={smsTotalAmount}
+        cancelReason={smsCancelReason}
+        initialContext={smsContext}
+      />
     </div>
   );
 }

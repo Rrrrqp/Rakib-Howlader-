@@ -77,6 +77,15 @@ export interface BrandSettings {
   steadfastApiKey?: string;
   steadfastSecretKey?: string;
   steadfastMerchantId?: string;
+  smsGateway?: 'device' | 'greenweb' | 'elitbuzz' | 'mimsms' | 'twilio';
+  smsGreenwebToken?: string;
+  smsElitbuzzApiKey?: string;
+  smsElitbuzzSenderId?: string;
+  smsMimsmsApiKey?: string;
+  smsMimsmsSenderId?: string;
+  smsTwilioSid?: string;
+  smsTwilioAuthToken?: string;
+  smsTwilioFrom?: string;
 }
 
 export interface ProductView {

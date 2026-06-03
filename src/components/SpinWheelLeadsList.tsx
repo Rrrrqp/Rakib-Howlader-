@@ -7,6 +7,7 @@ import {
 import { subscribeToVisitorSessions } from '../services/trackingService';
 import { getAllOrders } from '../services/orderService';
 import { VisitorSession, Order } from '../types';
+import SMSSenderModal from './SMSSenderModal';
 
 interface SpinWheelLeadsListProps {
   orders: Order[];
@@ -20,6 +21,10 @@ export default function SpinWheelLeadsList({ orders: initialOrders }: SpinWheelL
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'ORDERED' | 'NO_ORDER'>('ALL');
   const [copiedCellId, setCopiedCellId] = useState<string | null>(null);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+
+  // Custom SMS Modals state variables
+  const [smsModalOpen, setSmsModalOpen] = useState(false);
+  const [selectedSmsLead, setSelectedSmsLead] = useState<any>(null);
 
   // Load real-time visitor sessions
   useEffect(() => {
@@ -428,28 +433,37 @@ export default function SpinWheelLeadsList({ orders: initialOrders }: SpinWheelL
                     হোয়াটসঅ্যাপ
                   </button>
 
-                  {/* Copy message template */}
+                  {/* Direct automated SMS sending with Bangladeshi & International Gateway integrations */}
                   <button 
-                    onClick={() => handleCopySms(lead)}
-                    className="py-2 px-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all"
+                    onClick={() => {
+                      setSelectedSmsLead(lead);
+                      setSmsModalOpen(true);
+                    }}
+                    className="py-2 px-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all cursor-pointer"
                   >
-                    {copiedCellId === `sms-${lead.sessionId}` ? (
-                      <>
-                        <Check size={11} className="text-emerald-600" />
-                        কপি হয়েছে
-                      </>
-                    ) : (
-                      <>
-                        <Copy size={11} />
-                        টেক্সট কপি
-                      </>
-                    )}
+                    <Smartphone size={11} className="text-indigo-200" />
+                    সরাসরি SMS
                   </button>
                 </div>
               </div>
             );
           })}
         </div>
+      )}
+
+      {/* Direct Professional Cloud & Device SMS Sender Console modal */}
+      {selectedSmsLead && (
+        <SMSSenderModal
+          isOpen={smsModalOpen}
+          onClose={() => {
+            setSmsModalOpen(false);
+            setSelectedSmsLead(null);
+          }}
+          recipientName={selectedSmsLead.customerName}
+          recipientPhone={selectedSmsLead.mobileNumber}
+          couponLabel={selectedSmsLead.wonCouponLabel}
+          couponCode={selectedSmsLead.wonCouponCode}
+        />
       )}
     </div>
   );
