@@ -136,7 +136,182 @@ async function startServer() {
     }
   });
 
-  // 4. Vite integration of public routing asset pipeline
+  // 4. API Route: Pathao Connection Test / Token Request
+  app.post("/api/pathao/check-connection", async (req, res) => {
+    try {
+      const { clientId, clientSecret, username, password, storeId } = req.body;
+
+      if (!clientId || !clientSecret || !username || !password) {
+        return res.status(400).json({
+          success: false,
+          message: "Pathao Client ID, Client Secret, Username (Email) and Password are required."
+        });
+      }
+
+      // Request token from Pathao OAuth
+      const tokenResponse = await fetch("https://openapi.pathao.com/aladdin/api/v1/issue-token", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Accept": "application/json"
+        },
+        body: JSON.stringify({
+          client_id: String(clientId).trim(),
+          client_secret: String(clientSecret).trim(),
+          username: String(username).trim(),
+          password: String(password).trim(),
+          grant_type: "password"
+        })
+      });
+
+      const responseText = await tokenResponse.text();
+      let tokenData;
+      try {
+        tokenData = JSON.parse(responseText);
+      } catch (e) {
+        tokenData = { status: tokenResponse.status, message: responseText };
+      }
+
+      if (tokenResponse.ok && tokenData.access_token) {
+        return res.json({
+          success: true,
+          message: "পাঠাও এপিআই এর সাথে কানেক্ট হয়েছে!",
+          accessToken: tokenData.access_token,
+          expiresIn: tokenData.expires_in,
+          raw: tokenData
+        });
+      } else {
+        // Fallback for sandboxed developer test accounts if needed, or clear error code reporting
+        return res.status(tokenResponse.status).json({
+          success: false,
+          message: tokenData.message || tokenData.error_description || "Invalid client credentials, store ID or username/password.",
+          raw: tokenData
+        });
+      }
+    } catch (err: any) {
+      console.error("Error testing Pathao Connection Proxy:", err);
+      return res.status(500).json({
+        success: false,
+        message: err.message || "Failed to establish a network connection to Pathao."
+      });
+    }
+  });
+
+  // 5. API Route: Pathao Courier Order Creation
+  app.post("/api/pathao/create-order", async (req, res) => {
+    try {
+      const { 
+        clientId, 
+        clientSecret, 
+        username, 
+        password, 
+        storeId,
+        recipient_name, 
+        recipient_phone, 
+        recipient_address, 
+        cod_amount, 
+        note, 
+        weight,
+        invoice,
+        recipient_city,
+        recipient_zone,
+        recipient_area
+      } = req.body;
+
+      if (!clientId || !clientSecret || !username || !password || !storeId) {
+        return res.status(400).json({
+          success: false,
+          message: "Required Pathao merchant integration keys or Store ID are missing."
+        });
+      }
+
+      // First step: Issue token
+      const tokenResponse = await fetch("https://openapi.pathao.com/aladdin/api/v1/issue-token", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Accept": "application/json"
+        },
+        body: JSON.stringify({
+          client_id: String(clientId).trim(),
+          client_secret: String(clientSecret).trim(),
+          username: String(username).trim(),
+          password: String(password).trim(),
+          grant_type: "password"
+        })
+      });
+
+      if (!tokenResponse.ok) {
+        const errText = await tokenResponse.text();
+        return res.status(tokenResponse.status).json({
+          success: false,
+          message: "Pathao authentication token generation failed: " + errText
+        });
+      }
+
+      const tokenData = await tokenResponse.json();
+      const accessToken = tokenData.access_token;
+
+      // Make create order call
+      const orderPayload = {
+        store_id: Number(storeId),
+        merchant_order_id: String(invoice || ''),
+        sender_name: "Sera Fashion House",
+        sender_phone: "01800000000", // Default sender phone placeholder
+        recipient_name: String(recipient_name),
+        recipient_phone: String(recipient_phone),
+        recipient_address: String(recipient_address),
+        recipient_city: Number(recipient_city || 1), // Dhaka City default
+        recipient_zone: Number(recipient_zone || 1), // Dhaka Zone default
+        recipient_area: recipient_area ? Number(recipient_area) : null,
+        delivery_type: "48", // Normal DELIVERY
+        item_type: "2", // Parcel / Clothing Group
+        special_instruction: String(note || ''),
+        item_quantity: 1,
+        amount: Number(cod_amount),
+        item_weight: Number(weight || 0.5)
+      };
+
+      const pathaoOrderResponse = await fetch("https://openapi.pathao.com/aladdin/api/v1/orders", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+          "Accept": "application/json"
+        },
+        body: JSON.stringify(orderPayload)
+      });
+
+      const responseText = await pathaoOrderResponse.text();
+      let orderResponseData;
+      try {
+        orderResponseData = JSON.parse(responseText);
+      } catch (e) {
+        orderResponseData = { status: pathaoOrderResponse.status, message: responseText };
+      }
+
+      if (pathaoOrderResponse.ok && (orderResponseData.code === 200 || orderResponseData.type === 'success' || orderResponseData.data)) {
+        return res.json({
+          success: true,
+          data: orderResponseData
+        });
+      } else {
+        return res.status(pathaoOrderResponse.status).json({
+          success: false,
+          message: orderResponseData.message || (orderResponseData.errors ? JSON.stringify(orderResponseData.errors) : "Pathao automated booking rejected this payload."),
+          raw: orderResponseData
+        });
+      }
+    } catch (err: any) {
+      console.error("Error creating Pathao consignment order:", err);
+      return res.status(500).json({
+        success: false,
+        message: err.message || "Failed to make call to Pathao Courier Services."
+      });
+    }
+  });
+
+  // 6. Vite integration of public routing asset pipeline
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
       server: { middlewareMode: true },

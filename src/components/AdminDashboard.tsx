@@ -352,6 +352,23 @@ export default function AdminDashboard() {
   });
   const [bookingError, setBookingError] = useState<string | null>(null);
 
+  // Pathao Courier Booking State
+  const [pathaoBookingOrder, setPathaoBookingOrder] = useState<Order | null>(null);
+  const [isPathaoBooking, setIsPathaoBooking] = useState(false);
+  const [pathaoBookingForm, setPathaoBookingForm] = useState({
+    invoice: '',
+    recipient_name: '',
+    recipient_phone: '',
+    recipient_address: '',
+    cod_amount: 0,
+    note: '',
+    weight: 0.5,
+    recipient_city: '1', // Dhaka by default
+    recipient_zone: '1',
+    recipient_area: ''
+  });
+  const [pathaoBookingError, setPathaoBookingError] = useState<string | null>(null);
+
   const startBooking = (order: Order) => {
     // Generate order products note
     let orderProductNote = '';
@@ -375,6 +392,113 @@ export default function AdminDashboard() {
       weight: 0.5
     });
     setBookingError(null);
+  };
+
+  const startPathaoBooking = (order: Order) => {
+    let orderProductNote = '';
+    if (order.items && order.items.length > 0) {
+      orderProductNote = order.items.map(item => `${item.productTitle} (Code: ${item.productCode}, Qty: ${item.quantity}, Size: ${item.size})`).join(', ');
+    } else {
+      orderProductNote = `${order.category || 'Product'} (Code: ${order.productCode || 'N/A'}, Qty: ${order.quantity || 1})`;
+    }
+    if (order.note) {
+      orderProductNote += ` | Note: ${order.note}`;
+    }
+
+    setPathaoBookingOrder(order);
+    setPathaoBookingForm({
+      invoice: order.orderId,
+      recipient_name: order.customerName,
+      recipient_phone: order.mobileNumber,
+      recipient_address: `${order.address}, ${order.upazila || ''}, ${order.district || ''}`.replace(/,\s*,/g, ',').replace(/\s+/g, ' ').trim(),
+      cod_amount: order.totalAmount,
+      note: orderProductNote,
+      weight: 0.5,
+      recipient_city: '1',
+      recipient_zone: '1',
+      recipient_area: ''
+    });
+    setPathaoBookingError(null);
+  };
+
+  const handleCreatePathaoBooking = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!pathaoBookingOrder) return;
+    if (!brandSettings?.pathaoClientId || !brandSettings?.pathaoClientSecret || !brandSettings?.pathaoUsername || !brandSettings?.pathaoPassword || !brandSettings?.pathaoStoreId) {
+      setPathaoBookingError("পাঠাও কুরিয়ার সেটিংস পাওয়া যায়নি। দয়া করে এডমিন সেটিংস থেকে Client ID, Client Secret, Store ID ও পাসওয়ার্ড সেট করুন।");
+      return;
+    }
+
+    setIsPathaoBooking(true);
+    setPathaoBookingError(null);
+
+    try {
+      const response = await fetch("/api/pathao/create-order", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          clientId: brandSettings.pathaoClientId,
+          clientSecret: brandSettings.pathaoClientSecret,
+          username: brandSettings.pathaoUsername,
+          password: brandSettings.pathaoPassword,
+          storeId: brandSettings.pathaoStoreId,
+          invoice: pathaoBookingForm.invoice,
+          recipient_name: pathaoBookingForm.recipient_name,
+          recipient_phone: pathaoBookingForm.recipient_phone,
+          recipient_address: pathaoBookingForm.recipient_address,
+          cod_amount: Number(pathaoBookingForm.cod_amount),
+          note: pathaoBookingForm.note,
+          weight: Number(pathaoBookingForm.weight),
+          recipient_city: Number(pathaoBookingForm.recipient_city),
+          recipient_zone: Number(pathaoBookingForm.recipient_zone),
+          recipient_area: pathaoBookingForm.recipient_area ? Number(pathaoBookingForm.recipient_area) : null
+        })
+      });
+
+      const result = await response.json();
+      if (response.ok && result.success) {
+        // Successful booking!
+        const orderData = result.data.data || result.data || {};
+        
+        // Update order status on Firestore and locally
+        await updateOrder(pathaoBookingOrder.id!, {
+          status: 'Shipped',
+          courierId: String(orderData.consignment_id || orderData.id || ''),
+          courierTrackingCode: String(orderData.tracking_code || orderData.id || ''),
+          courierStatus: String(orderData.status || 'In Review')
+        });
+
+        // Update local state orders list
+        setOrders(prev => prev.map(o => o.id === pathaoBookingOrder.id ? {
+          ...o,
+          status: 'Shipped',
+          courierId: String(orderData.consignment_id || orderData.id || 'booked'),
+          courierTrackingCode: String(orderData.tracking_code || orderData.id || ''),
+          courierStatus: String(orderData.status || 'In Review')
+        } : o));
+
+        // Update the active viewingOrder modal so the tracking updates instantly!
+        setViewingOrder(prev => prev && prev.id === pathaoBookingOrder.id ? {
+          ...prev,
+          status: 'Shipped',
+          courierId: String(orderData.consignment_id || orderData.id || 'booked'),
+          courierTrackingCode: String(orderData.tracking_code || orderData.id || ''),
+          courierStatus: String(orderData.status || 'In Review')
+        } : prev);
+
+        setPathaoBookingOrder(null);
+        alert(`অর্ডারটি সফলভাবে পাঠাও কুরিয়ারে বুকিং হয়েছে!\nট্র্যাকিং কোড: ${orderData.tracking_code || orderData.id || 'N/A'}`);
+      } else {
+        setPathaoBookingError(result.message || "পাঠাও কুরিয়ারে অর্ডার বুকিং করতে ব্যর্থ হয়েছে।");
+      }
+    } catch (err: any) {
+      console.error("Pathao Booking error:", err);
+      setPathaoBookingError(err.message || "সার্ভার এর সাথে কানেকশন ব্যর্থ হয়েছে। দয়া করে আবার চেষ্টা করুন।");
+    } finally {
+      setIsPathaoBooking(false);
+    }
   };
 
   const handleCreateBooking = async (e: React.FormEvent) => {
@@ -571,6 +695,171 @@ export default function AdminDashboard() {
     setIsBulkDeleteConfirmOpen(false);
     setOrders(prev => prev.filter(o => !idsToDelete.includes(o.id!)));
     await Promise.all(idsToDelete.map(id => deleteOrder(id)));
+  };
+
+  const handleBulkSteadfastBooking = async () => {
+    if (selectedOrders.length === 0) return;
+    if (!brandSettings?.steadfastApiKey || !brandSettings?.steadfastSecretKey) {
+      alert("কুরিয়ার সেটিংস পাওয়া যায়নি। দয়া করে সেটিংস থেকে API Key ও Secret Key বসান।");
+      return;
+    }
+
+    const confirmBooking = window.confirm(`আপনি কি নির্বাচিত ${selectedOrders.length}টি অর্ডার সরাসরি স্টেট ফাস্ট কুরিয়ারে বুকিং করতে চান?`);
+    if (!confirmBooking) return;
+
+    let successCount = 0;
+    let failCount = 0;
+
+    for (const orderId of selectedOrders) {
+      const order = orders.find(o => o.id === orderId);
+      if (!order) continue;
+
+      let orderProductNote = '';
+      if (order.items && order.items.length > 0) {
+        orderProductNote = order.items.map(item => `${item.productTitle} (Code: ${item.productCode}, Qty: ${item.quantity}, Size: ${item.size})`).join(', ');
+      } else {
+        orderProductNote = `${order.category || 'Product'} (Code: ${order.productCode || 'N/A'}, Qty: ${order.quantity || 1})`;
+      }
+      if (order.note) {
+        orderProductNote += ` | Note: ${order.note}`;
+      }
+
+      try {
+        const response = await fetch("/api/steadfast/create-order", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            apiKey: brandSettings.steadfastApiKey,
+            secretKey: brandSettings.steadfastSecretKey,
+            invoice: order.orderId,
+            recipient_name: order.customerName,
+            recipient_phone: order.mobileNumber,
+            recipient_address: `${order.address}, ${order.upazila || ''}, ${order.district || ''}`.replace(/,\s*,/g, ',').replace(/\s+/g, ' ').trim(),
+            cod_amount: Number(order.totalAmount),
+            note: orderProductNote,
+            weight: 0.5
+          })
+        });
+
+        const result = await response.json();
+        if (response.ok && result.success) {
+          const consignment = result.data.consignment || result.data || {};
+          
+          await updateOrder(order.id!, {
+            status: 'Shipped',
+            courierId: String(consignment.consignment_id || consignment.id || ''),
+            courierTrackingCode: String(consignment.tracking_code || ''),
+            courierStatus: String(consignment.status || 'In Review')
+          });
+
+          // Update local state orders list
+          setOrders(prev => prev.map(o => o.id === order.id ? {
+            ...o,
+            status: 'Shipped',
+            courierId: String(consignment.consignment_id || consignment.id || 'booked'),
+            courierTrackingCode: String(consignment.tracking_code || ''),
+            courierStatus: String(consignment.status || 'In Review')
+          } : o));
+
+          successCount++;
+        } else {
+          failCount++;
+        }
+      } catch (err) {
+        console.error("Bulk Steadfast single booking error:", err);
+        failCount++;
+      }
+    }
+
+    alert(`স্টেট ফাস্ট কুরিয়ারে বুকিং সম্পন্ন হয়েছে!\nসফল: ${successCount}টি\nব্যর্থ: ${failCount}টি`);
+    setSelectedOrders([]);
+  };
+
+  const handleBulkPathaoBooking = async () => {
+    if (selectedOrders.length === 0) return;
+    if (!brandSettings?.pathaoClientId || !brandSettings?.pathaoClientSecret || !brandSettings?.pathaoUsername || !brandSettings?.pathaoPassword || !brandSettings?.pathaoStoreId) {
+      alert("পাঠাও কুরিয়ার সেটিংস পাওয়া যায়নি। দয়া করে সেটিংস থেকে Client ID, Client Secret, Store ID ও পাসওয়ার্ড বসান।");
+      return;
+    }
+
+    const confirmBooking = window.confirm(`আপনি কি নির্বাচিত ${selectedOrders.length}টি অর্ডার সরাসরি পাঠাও কুরিয়ারে বুকিং করতে চান?`);
+    if (!confirmBooking) return;
+
+    let successCount = 0;
+    let failCount = 0;
+
+    for (const orderId of selectedOrders) {
+      const order = orders.find(o => o.id === orderId);
+      if (!order) continue;
+
+      let orderProductNote = '';
+      if (order.items && order.items.length > 0) {
+        orderProductNote = order.items.map(item => `${item.productTitle} (Code: ${item.productCode}, Qty: ${item.quantity}, Size: ${item.size})`).join(', ');
+      } else {
+        orderProductNote = `${order.category || 'Product'} (Code: ${order.productCode || 'N/A'}, Qty: ${order.quantity || 1})`;
+      }
+      if (order.note) {
+        orderProductNote += ` | Note: ${order.note}`;
+      }
+
+      try {
+        const response = await fetch("/api/pathao/create-order", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            clientId: brandSettings.pathaoClientId,
+            clientSecret: brandSettings.pathaoClientSecret,
+            username: brandSettings.pathaoUsername,
+            password: brandSettings.pathaoPassword,
+            storeId: brandSettings.pathaoStoreId,
+            invoice: order.orderId,
+            recipient_name: order.customerName,
+            recipient_phone: order.mobileNumber,
+            recipient_address: `${order.address}, ${order.upazila || ''}, ${order.district || ''}`.replace(/,\s*,/g, ',').replace(/\s+/g, ' ').trim(),
+            cod_amount: Number(order.totalAmount),
+            note: orderProductNote,
+            weight: 0.5,
+            recipient_city: 1, // Dhaka by default
+            recipient_zone: 1
+          })
+        });
+
+        const result = await response.json();
+        if (response.ok && result.success) {
+          const orderData = result.data.data || result.data || {};
+          
+          await updateOrder(order.id!, {
+            status: 'Shipped',
+            courierId: String(orderData.consignment_id || orderData.id || ''),
+            courierTrackingCode: String(orderData.tracking_code || orderData.id || ''),
+            courierStatus: String(orderData.status || 'In Review')
+          });
+
+          // Update local state orders list
+          setOrders(prev => prev.map(o => o.id === order.id ? {
+            ...o,
+            status: 'Shipped',
+            courierId: String(orderData.consignment_id || orderData.id || 'booked'),
+            courierTrackingCode: String(orderData.tracking_code || orderData.id || ''),
+            courierStatus: String(orderData.status || 'In Review')
+          } : o));
+
+          successCount++;
+        } else {
+          failCount++;
+        }
+      } catch (err) {
+        console.error("Bulk Pathao single booking error:", err);
+        failCount++;
+      }
+    }
+
+    alert(`পাঠাও কুরিয়ারে বুকিং সম্পন্ন হয়েছে!\nসফল: ${successCount}টি\nব্যর্থ: ${failCount}টি`);
+    setSelectedOrders([]);
   };
 
   const handleExportToCSV = () => {
@@ -2429,6 +2718,94 @@ export default function AdminDashboard() {
                   )}
                 </div>
 
+                {/* Pathao Courier Status / Action Card */}
+                <div className="bg-gradient-to-tr from-red-50/20 via-white to-orange-50/10 rounded-[2.5rem] border border-red-100 p-8 space-y-4 shadow-sm">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="p-3 bg-[#E52E2E] text-white rounded-2xl shadow-md shadow-red-600/10">
+                        <Truck size={20} />
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-black text-[#1a1c2e] uppercase tracking-wider">পাঠাও কুরিয়ার বুকিং (Pathao Courier)</h3>
+                        <p className="text-[10px] text-[#E52E2E] font-bold mt-0.5">অটোমেটেড পাঠাও কুরিয়ার বুকিং মডিউল</p>
+                      </div>
+                    </div>
+                    {viewingOrder.courierTrackingCode && viewingOrder.courierId && (
+                      <span className="bg-orange-50 text-orange-700 text-[10px] font-black uppercase tracking-wider px-3 py-1.5 rounded-full border border-orange-100">
+                        ✓ booked
+                      </span>
+                    )}
+                  </div>
+
+                  {viewingOrder.courierTrackingCode ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
+                      <div className="bg-gray-50 border border-gray-100 p-4 rounded-2xl space-y-1">
+                        <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest block">Consignment ID</span>
+                        <strong className="text-sm font-black text-gray-800 font-mono block">{viewingOrder.courierId || 'N/A'}</strong>
+                      </div>
+                      <div className="bg-gray-50 border border-gray-100 p-4 rounded-2xl relative overflow-hidden flex flex-col justify-between group">
+                        <div>
+                          <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest block">Tracking Code</span>
+                          <strong className="text-sm font-black text-[#E52E2E] font-mono block">{viewingOrder.courierTrackingCode}</strong>
+                        </div>
+                        <div className="flex gap-2 mt-2">
+                          <button
+                            onClick={() => {
+                              navigator.clipboard.writeText(viewingOrder.courierTrackingCode || '');
+                              alert("ট্র্যাকিং কোড কপি করা হয়েছে!");
+                            }}
+                            className="bg-white hover:bg-gray-100 border border-gray-250 text-gray-700 px-3 py-1.5 rounded-lg text-[9px] font-black uppercase transition-all flex items-center gap-1 cursor-pointer"
+                          >
+                            Copy Code
+                          </button>
+                          <a
+                            href={`https://pathao.com/courier/tracking?tracking_code=${viewingOrder.courierTrackingCode}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="bg-[#1a1c2e] hover:bg-[#252841] text-white px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all flex items-center gap-1"
+                          >
+                            Track Live
+                          </a>
+                        </div>
+                      </div>
+                      <div className="col-span-1 md:col-span-2 bg-emerald-50/20 border border-emerald-150 p-4 rounded-2xl flex items-center justify-between">
+                        <div>
+                          <span className="text-[9px] font-black text-emerald-600/70 uppercase tracking-widest block">Current Dispatch Status</span>
+                          <span className="text-xs font-black text-emerald-800 uppercase mt-0.5 block">{viewingOrder.courierStatus || 'In Review'}</span>
+                        </div>
+                        <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse mr-1" />
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="pt-2">
+                      {!brandSettings?.pathaoClientId ? (
+                        <div className="bg-amber-50 text-amber-800 p-4 rounded-2xl border border-amber-100 text-xs font-bold leading-relaxed space-y-2">
+                          <div className="flex items-center gap-2">
+                            <AlertCircle size={16} className="text-amber-600" />
+                            <span>কুরিয়ার সার্ভিস কনফিগার করা হয়নি!</span>
+                          </div>
+                          <p className="text-[11px] text-amber-700 font-normal leading-relaxed">
+                            অর্ডারটি সরাসরি পাঠাও কুরিয়ার সার্ভিসে বুকিং করার জন্য দয়া করে <strong>ব্র্যান্ড ও নোটিফিকেশন সেটিংস (Settings Manager)</strong> থেকে আপনার পাঠাও এপিআই ক্রেডেনশিয়াল সেট আপ করুন।
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="flex flex-col gap-3">
+                          <p className="text-xs text-gray-500 leading-relaxed font-normal">
+                            আপনি কি এই অর্ডারটি সরাসরি পাঠাও কুরিয়ার সার্ভিসে বুকিং করতে চান? কাস্টমারের নাম, ফোন নম্বর, ঠিকানা এবং প্রদেয় মূল্য (COD Amount) অটো-ফিল হয়ে যাবে!
+                          </p>
+                          <button
+                            onClick={() => startPathaoBooking(viewingOrder)}
+                            className="bg-[#E52E2E] hover:bg-red-700 hover:shadow-lg active:scale-95 text-white py-3 px-6 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 shadow-md w-full cursor-pointer"
+                          >
+                            <Truck size={16} />
+                            পাঠাও কুরিয়ারে বুকিং করুন
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
                 {/* Special Note */}
                 <div className="relative group">
                   <div className="absolute inset-0 bg-rose-50 rounded-[2.5rem] -rotate-1 group-hover:rotate-0 transition-transform" />
@@ -2718,71 +3095,105 @@ export default function AdminDashboard() {
       <AnimatePresence>
         {selectedOrders.length > 0 && (
           <motion.div 
-            initial={{ y: 100 }}
-            animate={{ y: 0 }}
-            exit={{ y: 100 }}
-            className="fixed bottom-6 left-4 right-4 z-[150] bg-brand-charcoal text-white rounded-[2rem] p-4 shadow-2xl flex items-center justify-between border border-white/10"
+            initial={{ y: 150, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: 150, opacity: 0 }}
+            className="fixed bottom-4 left-4 right-4 md:bottom-6 md:left-6 md:right-6 z-[150] bg-[#121421] text-white rounded-3xl md:rounded-[2rem] p-4 md:p-5 shadow-2xl border border-white/10"
           >
-            <div className="flex items-center gap-4 px-4 border-r border-white/10">
-              <span className="text-[10px] font-black uppercase tracking-widest">{selectedOrders.length} Selected</span>
-              <button 
-                onClick={() => setSelectedOrders([])}
-                className="text-[10px] font-black text-rose-500 uppercase tracking-widest hover:bg-rose-500/10 px-3 py-1 rounded-lg transition-all"
-              >
-                Cancel
-              </button>
-            </div>
-            
-            <div className="flex-1 flex items-center justify-center gap-4 relative">
-              <div className="relative">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 md:gap-4 w-full">
+              
+              {/* Selected Count Header */}
+              <div className="flex items-center justify-between md:justify-start gap-4 pb-2.5 md:pb-0 border-b border-white/5 md:border-b-0 md:border-r md:border-white/10 md:pr-4">
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
+                  <span className="text-[11px] md:text-xs font-black uppercase tracking-wider">
+                    {selectedOrders.length} {selectedOrders.length === 1 ? 'অর্ডার' : 'অর্ডারসমূহ'} নির্বাচিত
+                  </span>
+                </div>
                 <button 
-                  onClick={() => setIsBulkStatusMenuOpen(!isBulkStatusMenuOpen)}
-                  className="flex items-center gap-2 px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border border-white/10 hover:bg-white/5 transition-all"
+                  onClick={() => setSelectedOrders([])}
+                  className="text-[10px] font-black text-rose-400 hover:text-rose-300 uppercase tracking-widest bg-white/5 hover:bg-white/10 px-3 py-1.5 rounded-xl transition-all cursor-pointer"
                 >
-                  Update Status <ChevronDown size={14} className={`transition-transform duration-300 ${isBulkStatusMenuOpen ? 'rotate-180' : ''}`} />
+                  বাতিল করুন (Cancel)
+                </button>
+              </div>
+              
+              {/* Actions Grid */}
+              <div className="flex-1 grid grid-cols-3 md:flex md:items-center md:justify-end gap-2 md:gap-4 relative">
+                
+                {/* Status Update Menu */}
+                <div className="relative col-span-3 md:col-span-auto">
+                  <button 
+                    onClick={() => setIsBulkStatusMenuOpen(!isBulkStatusMenuOpen)}
+                    className="w-full md:w-auto flex items-center justify-center gap-2 px-4 py-3 md:py-2.5 rounded-xl text-[10px] font-black uppercase tracking-wider border border-white/10 hover:bg-white/5 transition-all text-gray-200 cursor-pointer"
+                  >
+                    <ChevronDown size={14} className={`transition-transform duration-300 text-rose-500 ${isBulkStatusMenuOpen ? 'rotate-180' : ''}`} />
+                    <span className="hidden md:inline">Update Status</span>
+                    <span className="inline md:hidden">স্ট্যাটাস পরিবর্তন</span>
+                  </button>
+
+                  <AnimatePresence>
+                    {isBulkStatusMenuOpen && (
+                      <>
+                        <motion.div 
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          exit={{ opacity: 0 }}
+                          className="fixed inset-0 z-10"
+                          onClick={() => setIsBulkStatusMenuOpen(false)}
+                        />
+                        <motion.div 
+                          initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                          animate={{ opacity: 1, y: 0, scale: 1 }}
+                          exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                          className="absolute bottom-full mb-3 left-0 right-0 md:right-auto md:w-48 bg-[#1a1c2e] rounded-2xl shadow-2xl border border-white/10 overflow-hidden z-[200]"
+                        >
+                          {['Pending', 'Confirmed', 'Processing', 'Shipped', 'Delivered', 'Cancelled'].map(s => (
+                            <button
+                              key={s}
+                              onClick={() => handleBulkStatusUpdate(s)}
+                              className="w-full px-5 py-3 text-left text-[11px] font-black uppercase tracking-widest hover:bg-white/5 text-gray-200 transition-colors border-b border-white/5 last:border-0"
+                            >
+                              {s}
+                            </button>
+                          ))}
+                        </motion.div>
+                      </>
+                    )}
+                  </AnimatePresence>
+                </div>
+
+                {/* Send to Steadfast Button */}
+                <button 
+                  onClick={handleBulkSteadfastBooking}
+                  className="col-span-1 flex items-center justify-center gap-1.5 md:gap-2 px-3 md:px-5 py-3 md:py-2.5 bg-rose-600 hover:bg-rose-700 rounded-xl text-[10px] font-black uppercase tracking-wider shadow-lg shadow-rose-600/20 transition-all cursor-pointer border border-transparent"
+                >
+                  <Send size={12} className="shrink-0" />
+                  <span className="hidden md:inline">Send to Steadfast</span>
+                  <span className="inline md:hidden text-[9px] truncate">Steadfast</span>
                 </button>
 
-                <AnimatePresence>
-                  {isBulkStatusMenuOpen && (
-                    <>
-                      <motion.div 
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        className="fixed inset-0 z-10"
-                        onClick={() => setIsBulkStatusMenuOpen(false)}
-                      />
-                      <motion.div 
-                        initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                        animate={{ opacity: 1, y: 0, scale: 1 }}
-                        exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                        className="absolute bottom-full mb-4 left-0 w-48 bg-[#1a1c2e] rounded-2xl shadow-2xl border border-white/10 overflow-hidden z-[200]"
-                      >
-                        {['Pending', 'Confirmed', 'Processing', 'Shipped', 'Delivered', 'Cancelled'].map(s => (
-                          <button
-                            key={s}
-                            onClick={() => handleBulkStatusUpdate(s)}
-                            className="w-full px-5 py-3 text-left text-[10px] font-black uppercase tracking-widest hover:bg-white/5 transition-colors border-b border-white/5 last:border-0"
-                          >
-                            {s}
-                          </button>
-                        ))}
-                      </motion.div>
-                    </>
-                  )}
-                </AnimatePresence>
+                {/* Send to Pathao Button */}
+                <button 
+                  onClick={handleBulkPathaoBooking}
+                  className="col-span-1 flex items-center justify-center gap-1.5 md:gap-2 px-3 md:px-5 py-3 md:py-2.5 bg-[#E52E2E] hover:bg-red-700 rounded-xl text-[10px] font-black uppercase tracking-wider shadow-lg shadow-red-600/20 transition-all cursor-pointer border border-transparent"
+                >
+                  <Truck size={12} className="shrink-0" />
+                  <span className="hidden md:inline">Send to Pathao</span>
+                  <span className="inline md:hidden text-[9px] truncate">Pathao</span>
+                </button>
+
+                {/* Delete Selected Button */}
+                <button 
+                  onClick={() => setIsBulkDeleteConfirmOpen(true)}
+                  className="col-span-1 flex items-center justify-center p-3 text-rose-500 bg-rose-500/10 hover:bg-rose-600 hover:text-white rounded-xl transition-all cursor-pointer"
+                  title="Delete Selected"
+                >
+                  <Trash2 size={16} className="md:w-5 md:h-5" />
+                  <span className="inline md:hidden text-[9px] font-black ml-1 uppercase">Delete</span>
+                </button>
+
               </div>
-
-              <button className="flex items-center gap-2 px-6 py-2 bg-indigo-600 hover:bg-indigo-700 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-indigo-600/30 transition-all">
-                <Send size={14} /> Send to Steadfast
-              </button>
-
-              <button 
-                onClick={() => setIsBulkDeleteConfirmOpen(true)}
-                className="p-3 text-rose-500 bg-rose-500/10 rounded-xl hover:bg-rose-500 hover:text-white transition-all ml-2"
-              >
-                <Trash2 size={20} />
-              </button>
             </div>
           </motion.div>
         )}
@@ -3096,6 +3507,195 @@ export default function AdminDashboard() {
                     >
                       {isBooking ? <RefreshCw className="animate-spin" size={14} /> : <Truck size={14} />}
                       নিশ্চিত বুকিং করুন (Confirm Dispatch)
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Pathao Courier Booking Modal */}
+      <AnimatePresence>
+        {pathaoBookingOrder && (
+          <div className="fixed inset-0 z-[250] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setPathaoBookingOrder(null)}
+              className="absolute inset-0 bg-[#0f111a]/75 backdrop-blur-md"
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95, y: 30 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 30 }}
+              className="bg-white w-full max-w-2xl rounded-[3rem] shadow-2xl relative z-10 overflow-hidden border border-red-50 text-left"
+            >
+              <div className="p-8">
+                <button 
+                  onClick={() => setPathaoBookingOrder(null)}
+                  className="absolute top-6 right-6 p-2 bg-gray-50 text-gray-400 hover:text-red-500 rounded-xl transition-all cursor-pointer"
+                >
+                  <X size={20} />
+                </button>
+
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="p-3 bg-[#E52E2E] text-white rounded-2xl shadow-md shadow-red-600/10">
+                    <Truck size={24} />
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-black text-[#1a1c2e]">পাঠাও কুরিয়ার বুকিং ফরম (Pathao Dispatch)</h2>
+                    <p className="text-[10px] font-bold text-[#E52E2E] uppercase tracking-widest mt-0.5 font-mono">
+                      Pathao Courier Logistics Automated Merchant Gateway
+                    </p>
+                  </div>
+                </div>
+
+                {pathaoBookingError && (
+                  <div className="mb-6 p-4 bg-orange-50 border border-orange-200 rounded-2xl text-orange-950 text-xs font-bold flex items-center gap-2">
+                    <AlertCircle size={16} />
+                    <span>{pathaoBookingError}</span>
+                  </div>
+                )}
+
+                <form onSubmit={handleCreatePathaoBooking} className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    
+                    {/* Invoice Ref ID */}
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-black text-gray-500 uppercase tracking-widest pl-2 block">১. ইনভয়েস নম্বর (Invoice/Order Ref):</label>
+                      <input 
+                        type="text" 
+                        required
+                        value={pathaoBookingForm.invoice}
+                        onChange={(e) => setPathaoBookingForm(prev => ({ ...prev, invoice: e.target.value }))}
+                        className="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 text-xs font-bold outline-none focus:ring-2 focus:ring-[#E52E2E]/20 transition-all font-mono text-[#1a1c2e]"
+                      />
+                    </div>
+
+                    {/* Cod Amount */}
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-black text-gray-500 uppercase tracking-widest pl-2 block">২. ক্যাশ অন ডেলিভারি (COD Amount - ৳):</label>
+                      <input 
+                        type="number" 
+                        required
+                        value={pathaoBookingForm.cod_amount}
+                        onChange={(e) => setPathaoBookingForm(prev => ({ ...prev, cod_amount: Number(e.target.value) }))}
+                        className="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 text-xs font-bold outline-none focus:ring-2 focus:ring-[#E52E2E]/20 transition-all text-red-600 font-sans"
+                      />
+                    </div>
+
+                    {/* Recipient Name */}
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-black text-gray-500 uppercase tracking-widest pl-2 block">৩. কাস্টমারের নাম (Recipient Name):</label>
+                      <input 
+                        type="text" 
+                        required
+                        value={pathaoBookingForm.recipient_name}
+                        onChange={(e) => setPathaoBookingForm(prev => ({ ...prev, recipient_name: e.target.value }))}
+                        className="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 text-xs font-bold outline-none focus:ring-2 focus:ring-[#E52E2E]/20 transition-all text-[#1a1c2e]"
+                      />
+                    </div>
+
+                    {/* Recipient Phone */}
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-black text-gray-500 uppercase tracking-widest pl-2 block">৪. মোবাইল নম্বর (Recipient Phone):</label>
+                      <input 
+                        type="text" 
+                        required
+                        value={pathaoBookingForm.recipient_phone}
+                        onChange={(e) => setPathaoBookingForm(prev => ({ ...prev, recipient_phone: e.target.value }))}
+                        className="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 text-xs font-bold outline-none focus:ring-2 focus:ring-[#E52E2E]/20 transition-all font-mono text-[#1a1c2e]"
+                      />
+                    </div>
+
+                    {/* City Selector */}
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-black text-gray-500 uppercase tracking-widest pl-2 block">৫. কাস্টমার শহর (Recipient City):</label>
+                      <select 
+                        required
+                        value={pathaoBookingForm.recipient_city}
+                        onChange={(e) => setPathaoBookingForm(prev => ({ ...prev, recipient_city: e.target.value }))}
+                        className="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 text-xs font-bold outline-none focus:ring-2 focus:ring-[#E52E2E]/20 transition-all text-[#1a1c2e]"
+                      >
+                        <option value="1">Dhaka City</option>
+                        <option value="2">Chittagong City</option>
+                        <option value="3">Sylhet City</option>
+                        <option value="4">Khulna City</option>
+                        <option value="5">Rajshahi City</option>
+                        <option value="6">Rangpur City</option>
+                        <option value="7">Barisal City</option>
+                        <option value="8">Mymensingh City</option>
+                      </select>
+                    </div>
+
+                    {/* Zone ID Target */}
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-black text-gray-500 uppercase tracking-widest pl-2 block">৬. জোন আইডি (Recipient Zone ID):</label>
+                      <input 
+                        type="text" 
+                        required
+                        placeholder="যেমন: 1"
+                        value={pathaoBookingForm.recipient_zone}
+                        onChange={(e) => setPathaoBookingForm(prev => ({ ...prev, recipient_zone: e.target.value }))}
+                        className="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 text-xs font-bold outline-none focus:ring-2 focus:ring-[#E52E2E]/20 transition-all font-mono text-[#1a1c2e]"
+                      />
+                    </div>
+
+                    {/* Recipient Address */}
+                    <div className="space-y-1 md:col-span-2">
+                      <label className="text-[9px] font-black text-gray-500 uppercase tracking-widest pl-2 block">৭. ডেলিভারি পুরো ঠিকানা (Full Address):</label>
+                      <textarea 
+                        required
+                        rows={2}
+                        value={pathaoBookingForm.recipient_address}
+                        onChange={(e) => setPathaoBookingForm(prev => ({ ...prev, recipient_address: e.target.value }))}
+                        className="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 text-xs font-bold outline-none focus:ring-2 focus:ring-[#E52E2E]/20 transition-all resize-none text-[#1a1c2e]"
+                      />
+                    </div>
+
+                    {/* Weight Key & Notes */}
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-black text-gray-500 uppercase tracking-widest pl-2 block">৮. ওজন কেজি (Weight in KG):</label>
+                      <input 
+                        type="number" 
+                        step="0.1"
+                        required
+                        value={pathaoBookingForm.weight}
+                        onChange={(e) => setPathaoBookingForm(prev => ({ ...prev, weight: Number(e.target.value) }))}
+                        className="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 text-xs font-bold outline-none focus:ring-2 focus:ring-[#E52E2E]/20 transition-all font-sans text-[#1a1c2e]"
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-black text-gray-500 uppercase tracking-widest pl-2 block">৯. বিশেষ নোট (Special Courier Note):</label>
+                      <input 
+                        type="text" 
+                        value={pathaoBookingForm.note}
+                        onChange={(e) => setPathaoBookingForm(prev => ({ ...prev, note: e.target.value }))}
+                        className="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 text-xs font-bold outline-none focus:ring-2 focus:ring-[#E52E2E]/20 transition-all text-[#1a1c2e]"
+                      />
+                    </div>
+
+                  </div>
+
+                  <div className="pt-4 flex gap-3">
+                    <button 
+                      type="button"
+                      onClick={() => setPathaoBookingOrder(null)}
+                      className="flex-1 py-3.5 bg-gray-150 hover:bg-gray-200 text-gray-700 rounded-2xl font-black text-xs uppercase tracking-widest transition-all cursor-pointer"
+                    >
+                      ক্যান্সেল
+                    </button>
+                    <button 
+                      type="submit"
+                      disabled={isPathaoBooking}
+                      className="flex-[2] py-3.5 bg-[#E52E2E] hover:bg-red-700 hover:shadow-lg disabled:opacity-55 text-white rounded-2xl font-black text-xs uppercase tracking-widest transition-all flex items-center justify-center gap-2 cursor-pointer"
+                    >
+                      {isPathaoBooking ? <RefreshCw className="animate-spin" size={14} /> : <Truck size={14} />}
+                      পাঠাও কুরিয়ারে বুকিং করুন
                     </button>
                   </div>
                 </form>

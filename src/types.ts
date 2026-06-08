@@ -77,6 +77,12 @@ export interface BrandSettings {
   steadfastApiKey?: string;
   steadfastSecretKey?: string;
   steadfastMerchantId?: string;
+  pathaoClientId?: string;
+  pathaoClientSecret?: string;
+  pathaoUsername?: string;
+  pathaoPassword?: string;
+  pathaoStoreId?: string;
+  pathaoAccessToken?: string;
   smsGateway?: 'device' | 'greenweb' | 'elitbuzz' | 'mimsms' | 'twilio';
   smsGreenwebToken?: string;
   smsElitbuzzApiKey?: string;

@@ -54,6 +54,12 @@ export default function SettingsManager() {
     steadfastApiKey: '',
     steadfastSecretKey: '',
     steadfastMerchantId: '',
+    pathaoClientId: '',
+    pathaoClientSecret: '',
+    pathaoUsername: '',
+    pathaoPassword: '',
+    pathaoStoreId: '',
+    pathaoAccessToken: '',
     smsGateway: 'device',
     smsGreenwebToken: '',
     smsElitbuzzApiKey: '',
@@ -72,6 +78,54 @@ export default function SettingsManager() {
   // Steadfast Test Connection state
   const [testingSteadfast, setTestingSteadfast] = useState(false);
   const [steadfastTestStatus, setSteadfastTestStatus] = useState<{ success: boolean; balance?: number; message?: string } | null>(null);
+
+  // Pathao Test Connection state
+  const [testingPathao, setTestingPathao] = useState(false);
+  const [pathaoTestStatus, setPathaoTestStatus] = useState<{ success: boolean; message?: string } | null>(null);
+
+  const handleTestPathao = async () => {
+    if (!settings.pathaoClientId || !settings.pathaoClientSecret || !settings.pathaoUsername || !settings.pathaoPassword) {
+      alert("অনুগ্রহ করে কুরিয়ার সেটিংস টেস্ট করার জন্য Client ID, Client Secret, Username এবং Password বসান।");
+      return;
+    }
+    setTestingPathao(true);
+    setPathaoTestStatus(null);
+    try {
+      const response = await fetch("/api/pathao/check-connection", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          clientId: settings.pathaoClientId.trim(),
+          clientSecret: settings.pathaoClientSecret.trim(),
+          username: settings.pathaoUsername.trim(),
+          password: settings.pathaoPassword.trim(),
+          storeId: (settings.pathaoStoreId || '').trim()
+        })
+      });
+      const data = await response.json();
+      if (response.ok && data.success) {
+        setPathaoTestStatus({
+          success: true,
+          message: data.message || "Connection successful!"
+        });
+      } else {
+        setPathaoTestStatus({
+          success: false,
+          message: data.message || "კავშირი ვერ დამყარდა. Incorrect credentials."
+        });
+      }
+    } catch (err: any) {
+      console.error("Error testing Pathao Connection:", err);
+      setPathaoTestStatus({
+        success: false,
+        message: err.message || "Network issue connecting to pathao."
+      });
+    } finally {
+      setTestingPathao(false);
+    }
+  };
 
   const handleTestSteadfast = async () => {
     if (!settings.steadfastApiKey || !settings.steadfastSecretKey) {
@@ -337,6 +391,12 @@ export default function SettingsManager() {
         steadfastApiKey: settings.steadfastApiKey,
         steadfastSecretKey: settings.steadfastSecretKey,
         steadfastMerchantId: settings.steadfastMerchantId,
+        pathaoClientId: settings.pathaoClientId,
+        pathaoClientSecret: settings.pathaoClientSecret,
+        pathaoUsername: settings.pathaoUsername,
+        pathaoPassword: settings.pathaoPassword,
+        pathaoStoreId: settings.pathaoStoreId,
+        pathaoAccessToken: settings.pathaoAccessToken,
         smsGateway: settings.smsGateway,
         smsGreenwebToken: settings.smsGreenwebToken,
         smsElitbuzzApiKey: settings.smsElitbuzzApiKey,
@@ -841,6 +901,157 @@ export default function SettingsManager() {
                     <li>সেখান থেকে আপনার <strong className="font-bold text-rose-800">API Key</strong> এবং <strong className="font-bold text-rose-800">Secret Key / Token</strong> কপি করে এখানে বসান।</li>
                     <li>আপনার প্যানেলের প্রোফাইল বা হোম পেইজ থেকে <strong className="font-bold text-rose-800">Merchant ID</strong> কপি করে ৩ নম্বর বক্সে বসান।</li>
                     <li>উপরে ডান পাশে থাকা <strong className="text-emerald-750 font-bold">"টেস্ট কানেকশন"</strong> বাটনে ক্লিক করে কানেক্ট করুন। টেস্ট সফল হলে সেভ করুন!</li>
+                  </ol>
+                </div>
+
+              </div>
+
+              {/* Pathao Courier Integration Card */}
+              <div className="bg-gradient-to-tr from-red-50/40 via-white to-orange-50/10 p-5 rounded-3xl border border-red-105 space-y-6">
+                
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2.5 bg-[#E52E2E] text-white rounded-2xl shadow-md shadow-red-600/10">
+                      <Truck size={18} />
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-black text-red-900 uppercase tracking-wider">পাঠাও কুরিয়ার সার্ভিস সেটিংস (Pathao Courier Connection)</h4>
+                      <p className="text-[10px] text-red-600 font-bold">অর্ডারগুলোকে এক ক্লিকে সরাসরি পাঠাও কুরিয়ার মার্চেন্ট এপিআই-তে বুকিং করুন</p>
+                    </div>
+                  </div>
+                  
+                  <button
+                    type="button"
+                    disabled={testingPathao}
+                    onClick={handleTestPathao}
+                    className="flex items-center gap-2 px-3 py-2 bg-[#E52E2E] hover:bg-red-700 hover:shadow-lg disabled:opacity-50 text-white rounded-xl text-[9px] font-black uppercase tracking-widest transition-all shadow-md shrink-0 cursor-pointer border border-transparent animate-pulse"
+                  >
+                    {testingPathao ? <RefreshCw size={12} className="animate-spin" /> : <Truck size={12} />}
+                    টেস্ট কানেকশন
+                  </button>
+                </div>
+
+                {/* Pathao connection test messages status */}
+                <AnimatePresence>
+                  {pathaoTestStatus && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      exit={{ opacity: 0, height: 0 }}
+                      className={`p-3.5 rounded-2xl text-[11px] font-bold flex items-center gap-2 border leading-relaxed ${
+                        pathaoTestStatus.success
+                          ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                          : 'bg-rose-50 text-rose-700 border-rose-200'
+                      }`}
+                    >
+                      {pathaoTestStatus.success ? (
+                        <>
+                          <Check size={16} />
+                          <span>পাঠাও এপিআই এর সাথে সফলভাবে কানেক্ট হয়েছে! আপনার মার্চেন্ট একাউন্ট সচল আছে। 🎉</span>
+                        </>
+                      ) : (
+                        <>
+                          <AlertCircle size={16} />
+                          <span>কানেক্ট করা যায়নি। ত্রুটি: {pathaoTestStatus.message}</span>
+                        </>
+                      )}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                {/* Pathao inputs form layout */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-5 pt-1">
+                  
+                  {/* Client ID field */}
+                  <div className="space-y-1.5 col-span-1">
+                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest flex items-center gap-1.5">
+                      <Key size={12} className="text-gray-400" />
+                      ১. ক্লায়েন্ট আইডি (Pathao Client ID):
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="যেমন: pt_client_id_..."
+                      value={settings.pathaoClientId || ''}
+                      onChange={(e) => setSettings(prev => ({ ...prev, pathaoClientId: e.target.value }))}
+                      className="w-full px-4 py-3 bg-white text-gray-800 placeholder-gray-400 font-mono text-xs rounded-2xl border border-red-100 focus:border-red-400 focus:ring-1 focus:ring-red-400 outline-none transition-all shadow-inner"
+                    />
+                  </div>
+
+                  {/* Client Secret Input Field */}
+                  <div className="space-y-1.5 col-span-1">
+                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest flex items-center gap-1.5">
+                      <Lock size={12} className="text-gray-400" />
+                      ২. ক্লায়েন্ট সিক্রেট (Client Secret):
+                    </label>
+                    <input
+                      type="password"
+                      placeholder="যেমন: pt_client_secret_..."
+                      value={settings.pathaoClientSecret || ''}
+                      onChange={(e) => setSettings(prev => ({ ...prev, pathaoClientSecret: e.target.value }))}
+                      className="w-full px-4 py-3 bg-white text-gray-800 placeholder-gray-400 font-mono text-xs rounded-2xl border border-red-100 focus:border-red-400 focus:ring-1 focus:ring-red-400 outline-none transition-all shadow-inner"
+                    />
+                  </div>
+
+                  {/* Username Field */}
+                  <div className="space-y-1.5 col-span-1">
+                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest flex items-center gap-1.5">
+                      <Lock size={12} className="text-gray-400" />
+                      ৩. মার্চেন্ট ইমেইল/ইউজারনেম:
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="যেমন: user@example.com"
+                      value={settings.pathaoUsername || ''}
+                      onChange={(e) => setSettings(prev => ({ ...prev, pathaoUsername: e.target.value }))}
+                      className="w-full px-4 py-3 bg-white text-gray-800 placeholder-gray-400 font-sans text-xs rounded-2xl border border-red-100 focus:border-red-400 focus:ring-1 focus:ring-red-400 outline-none transition-all shadow-inner"
+                    />
+                  </div>
+
+                  {/* Password Field */}
+                  <div className="space-y-1.5 col-span-1">
+                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest flex items-center gap-1.5">
+                      <Lock size={12} className="text-gray-400" />
+                      ৪. মার্চেন্ট পাসওয়ার্ড (Password):
+                    </label>
+                    <input
+                      type="password"
+                      placeholder="আপনার পাসওয়ার্ড..."
+                      value={settings.pathaoPassword || ''}
+                      onChange={(e) => setSettings(prev => ({ ...prev, pathaoPassword: e.target.value }))}
+                      className="w-full px-4 py-3 bg-white text-gray-800 placeholder-gray-400 text-xs rounded-2xl border border-red-100 focus:border-red-400 focus:ring-1 focus:ring-red-400 outline-none transition-all shadow-inner"
+                    />
+                  </div>
+
+                  {/* Store ID Field */}
+                  <div className="space-y-1.5 col-span-1">
+                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest flex items-center gap-1.5">
+                      <Building size={12} className="text-gray-400" />
+                      ৫. স্টোর আইডি (Store ID):
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="যেমন: 98765"
+                      value={settings.pathaoStoreId || ''}
+                      onChange={(e) => setSettings(prev => ({ ...prev, pathaoStoreId: e.target.value }))}
+                      className="w-full px-4 py-3 bg-white text-gray-800 placeholder-gray-400 font-mono text-xs rounded-2xl border border-red-100 focus:border-red-400 focus:ring-1 focus:ring-red-400 outline-none transition-all shadow-inner"
+                    />
+                  </div>
+
+                </div>
+
+                {/* Detailed steps to get details from Pathao Panel */}
+                <div className="bg-red-50 bg-opacity-40 p-4 rounded-2xl mt-4 space-y-2 border border-red-100/50">
+                  <div className="flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-widest text-red-650">
+                    <BadgeHelp size={14} />
+                    পাঠাও কুরিয়ার কানেক্ট করার গাইড (Pathao Setup Guide):
+                  </div>
+                  <ol className="text-gray-600 text-[11px] leading-relaxed list-decimal list-inside space-y-1.5 pl-1 font-sans">
+                    <li>প্রথমে আপনার <strong className="text-red-750 font-bold">Pathao Merchant Panel</strong>-এ লগইন করুন।</li>
+                    <li>এপিআই ক্রেডেনশিয়াল পেতে <strong className="text-red-750 font-bold">Developer Portal</strong> বা <strong className="text-red-750 font-bold">API Settings</strong> এ গিয়ে নতুন ক্লায়েন্ট তৈরি করুন।</li>
+                    <li>সেখান থেকে প্রাপ্ত <strong className="font-bold text-red-750">Client ID</strong> এবং <strong className="font-bold text-red-750">Client Secret</strong> কপি করে এখানে বসান।</li>
+                    <li>আপনার মার্চেন্ট একাউন্টের লগইন <strong className="font-bold text-red-750">ইমেইল (Username)</strong> এবং <strong className="font-bold text-red-750">পাসওয়ার্ড</strong> বসান।</li>
+                    <li>মার্চেন্ট প্রোফাইলের স্টোর লিস্ট থেকে আপনার <strong className="font-bold text-red-750">Store ID</strong> কপি করে স্টোর বক্সে বসান।</li>
+                    <li>উপরে থাকা <strong className="text-emerald-750 font-bold">"টেস্ট কানেকশন"</strong> বাটনে ক্লিক করে কানেক্ট করুন। টেস্ট সফল হলে সেভ করুন!</li>
                   </ol>
                 </div>
 
